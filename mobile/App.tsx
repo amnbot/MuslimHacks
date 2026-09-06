@@ -19,6 +19,7 @@ import { useWorkspace, type WorkspaceTab } from './src/state/useWorkspace';
 import { ConversationList } from './src/screens/ConversationList';
 import { ConversationScreen } from './src/screens/ConversationScreen';
 import { RoutesSheet } from './src/screens/RoutesSheet';
+import { PaymentResultSheet } from './src/screens/PaymentResultSheet';
 import { InvoiceList, CreateInvoice, InvoiceDetail, WalletScreen, BusinessSheets } from './src/screens/BusinessScreens';
 
 const TABS: { value: WorkspaceTab; label: string; icon: typeof FileText }[] = [
@@ -93,6 +94,14 @@ function Root() {
 
     <Toast message={workspace.notice} bottomInset={insets.bottom} />
     {modal === 'routes' && <Sheet title="Payment routes" onClose={() => openModal(null)}><RoutesSheet workspace={workspace} /></Sheet>}
+    {modal === 'payment' && workspace.paymentResult && (
+      <Sheet
+        title={workspace.paymentResult.status === 'pending' ? 'Sending payment' : workspace.paymentResult.status === 'confirmed' ? 'Payment confirmed' : 'Payment failed'}
+        onClose={workspace.closePaymentModal}
+      >
+        <PaymentResultSheet workspace={workspace} />
+      </Sheet>
+    )}
     <BusinessSheets business={workspace} />
   </View>;
 }

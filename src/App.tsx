@@ -15,7 +15,7 @@ import { NETWORK_FEE_NOTE } from './lib/funding';
 import { calculateCosts, money, recommendRoute, type FeeBearer } from './lib/costs';
 import {
   addressExplorerUrl, BASE_FEE_LAMPORTS, explorerUrl, FAUCET_SOL_URL, FAUCET_USDC_URL,
-  getSolBalance, getUsdcBalance, LAMPORTS_PER_SOL, payUsdc, TOKEN_ACCOUNT_RENT_LAMPORTS,
+  getSolBalance, getUsdcBalance, LAMPORTS_PER_SOL, payUsdc, PaymentTimeoutError, TOKEN_ACCOUNT_RENT_LAMPORTS,
 } from './lib/solana';
 import {
   corridorOf, counterpartOf, DEMO_SETTLEMENT_MICROS, DEMO_SETTLEMENT_NOTE, DEMO_THREADS,
@@ -26,7 +26,21 @@ import { markupPercent } from './lib/format';
 
 type Tab = 'chats' | 'invoices' | 'wallet';
 type Route = 'list' | 'thread' | 'create' | 'detail';
-type Overlay = 'profile' | 'security' | 'routes' | 'share' | null;
+type Overlay = 'profile' | 'security' | 'routes' | 'share' | 'payment' | null;
+
+type PaymentResult = {
+  status: 'pending' | 'confirmed' | 'failed';
+  amountMicros: number;
+  fromLabel: string;
+  fromAddress: string;
+  toLabel: string;
+  toAddress: string;
+  signature: string | null;
+  error: string | null;
+  /** The recipient's live USDC balance, fetched right after confirmation. */
+  recipientBalanceMicros: number | null;
+  threadId: string | null;
+};
 
 const clone = <T,>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
 const clockTime = () => new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
@@ -54,6 +68,7 @@ function useWorkspace() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [paying, setPaying] = useState(false);
+  const [paymentResult, setPaymentResult] = useState<PaymentResult | null>(null);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [stress, setStress] = useState(0);
@@ -123,7 +138,7 @@ function useWorkspace() {
 
   function switchProfile(next: ProfileId) {
     setProfileId(next); setTab('chats'); setRoute('list'); setActiveThreadId(null);
-    setSelectedId(null); setOverlay(null); setError(''); setBalances(null); setStress(0);
+    setSelectedId(null); setOverlay(null); setError(''); setBalances(null); setStress(0); setPaymentResult(null);
     setNotice(`Now viewing as ${PROFILES[next].personName}.`);
   }
 
@@ -222,12 +237,28 @@ function useWorkspace() {
 
   useEffect(() => { if (ready && tab === 'wallet') void refreshBalances(); }, [ready, tab, refreshBalances]);
 
-  async function pay(recipientWallet: string, threadId: string | null) {
+  /**
+   * Submits a real devnet transfer and tracks it as a PaymentResult the whole way:
+   * pending the instant it starts, then confirmed with a signature and the
+   * recipient's live balance, or failed with the actual error. The modal opens
+   * immediately so the button click is never followed by silence.
+   */
+  async function pay(recipientWallet: string, toLabel: string, threadId: string | null) {
     if (paying) return;
     setPaying(true); setError('');
+    setPaymentResult({
+      status: 'pending', amountMicros: DEMO_SETTLEMENT_MICROS,
+      fromLabel: profile.personName, fromAddress: profile.wallet.address,
+      toLabel, toAddress: recipientWallet, signature: null, error: null, recipientBalanceMicros: null, threadId,
+    });
+    setOverlay('payment');
     try {
       const result = await payUsdc({ from: profile.wallet, to: recipientWallet, amountMicros: DEMO_SETTLEMENT_MICROS });
       if (!alive.current) return;
+      let recipientBalanceMicros: number | null = null;
+      try { recipientBalanceMicros = await getUsdcBalance(recipientWallet); } catch { /* the balance is a bonus, not required to show the result */ }
+      if (!alive.current) return;
+      setPaymentResult((current) => current ? { ...current, status: 'confirmed', signature: result.signature, recipientBalanceMicros } : current);
       if (threadId) {
         appendMessage(threadId, { kind: 'payment', id: crypto.randomUUID(), from: profileId, time: clockTime(), amountMicros: DEMO_SETTLEMENT_MICROS, signature: result.signature });
         updateThread(threadId, (thread) => ({ ...thread, stage: 'paid' }));
@@ -235,15 +266,25 @@ function useWorkspace() {
       setNotice('Confirmed on Solana devnet.');
       await refreshBalances();
     } catch (caught) {
-      if (alive.current) setError(messageOf(caught));
+      // A transaction that was broadcast but timed out while confirming still carries
+      // a real signature; show it so the explorer link works even in that case.
+      const signature = caught instanceof PaymentTimeoutError ? caught.signature : null;
+      if (alive.current) {
+        setError(messageOf(caught));
+        setPaymentResult((current) => current ? { ...current, status: 'failed', error: messageOf(caught), signature } : current);
+      }
     } finally {
       if (alive.current) setPaying(false);
     }
   }
 
+  function closePaymentModal() {
+    setOverlay(null);
+  }
+
   function resetDemo() {
     setThreads(clone(DEMO_THREADS)); setActiveThreadId(null); setSelectedId(null);
-    setOverlay(null); setRoute('list'); setTab('chats'); setStress(0); setError(''); setBalances(null);
+    setOverlay(null); setRoute('list'); setTab('chats'); setStress(0); setError(''); setBalances(null); setPaymentResult(null);
     setNotice('Seeded conversations restored. Ready for another walkthrough.');
   }
 
@@ -252,7 +293,7 @@ function useWorkspace() {
     setActiveThreadId, tab, setTab, route, setRoute, overlay, setOverlay, selected, setSelectedId,
     records, busy, paying, error, setError, notice, stress, setStress, balances, loadingBalances,
     sendMessage, voteFeeBearer, updateThread, saveInvoice, acknowledge, prepareExport,
-    checkAlteredCopy, copy, refreshBalances, pay, encryptedExport,
+    checkAlteredCopy, copy, refreshBalances, pay, encryptedExport, paymentResult, closePaymentModal,
   };
 }
 type Workspace = ReturnType<typeof useWorkspace>;
@@ -269,6 +310,67 @@ function Modal({ title, children, onClose }: { title: string; children: ReactNod
 
 function NetworkTag({ network = 'solana-devnet' as const }: { network?: 'solana-mainnet-beta' | 'solana-devnet' }) {
   return <span className="network-tag"><span className="network-dot" />{CLUSTER_LABEL[network]}</span>;
+}
+
+const shortAddress = (value: string) => `${value.slice(0, 6)}…${value.slice(-6)}`;
+
+/**
+ * The full result of a devnet transfer: pending the instant it starts, then either a
+ * confirmed signature with the recipient's live balance, or the real failure reason.
+ * Nothing here is inferred — every field comes straight from the devnet RPC response.
+ */
+function PaymentModal({ workspace }: { workspace: Workspace }) {
+  const result = workspace.paymentResult;
+  if (!result) return null;
+  return <Modal
+    title={result.status === 'pending' ? 'Sending payment' : result.status === 'confirmed' ? 'Payment confirmed' : 'Payment failed'}
+    onClose={workspace.closePaymentModal}
+  >
+    <div className={`payment-status is-${result.status}`}>
+      {result.status === 'pending' && <RefreshCw size={20} className="spin" />}
+      {result.status === 'confirmed' && <Check size={20} />}
+      {result.status === 'failed' && <TriangleAlert size={20} />}
+      <span>
+        <strong>{result.status === 'pending' ? 'Submitting to Solana devnet…' : result.status === 'confirmed' ? 'Confirmed on Solana devnet' : 'Payment did not confirm'}</strong>
+        <small>{result.status === 'pending' ? 'Building, signing and broadcasting the transaction.' : result.status === 'confirmed' ? 'The transfer landed on chain and was verified.' : 'See the details below.'}</small>
+      </span>
+    </div>
+
+    <div className="payment-amount">
+      <small>Amount</small>
+      <strong>{formatUsdc(result.amountMicros)} <small>USDC</small></strong>
+    </div>
+
+    <div className="payment-parties">
+      <div><small>From</small><strong>{result.fromLabel}</strong><code>{shortAddress(result.fromAddress)}</code></div>
+      <div><small>To</small><strong>{result.toLabel}</strong><code>{shortAddress(result.toAddress)}</code></div>
+    </div>
+
+    {result.signature && <div className="payment-details">
+      <p><strong>Transaction signature</strong></p>
+      <code className="hash-line">{result.signature}</code>
+      <a className="text-button" href={explorerUrl(result.signature)} target="_blank" rel="noreferrer">View on Solana Explorer <ExternalLink size={13} /></a>
+      <button className="text-button" onClick={() => void workspace.copy(result.signature!, 'Transaction signature copied.')}><Copy size={14} /> Copy signature</button>
+    </div>}
+
+    {result.status === 'confirmed' && <div className="payment-recipient">
+      <strong>{result.toLabel}'s wallet</strong>
+      <p>{result.recipientBalanceMicros === null
+        ? 'Balance could not be read right now — check the Wallet tab after switching profile.'
+        : `Now holds ${formatUsdc(result.recipientBalanceMicros)} USDC on devnet.`}</p>
+      <a className="text-button" href={addressExplorerUrl(result.toAddress)} target="_blank" rel="noreferrer">View recipient wallet <ExternalLink size={13} /></a>
+    </div>}
+
+    {result.status === 'failed' && <div className="error-banner" role="alert">
+      <span>{result.error}{result.signature && ' The transaction was broadcast before this failure. It may still confirm later — check the explorer link above.'}</span>
+    </div>}
+
+    <div className="button-row">
+      {result.status !== 'pending' && <button className="secondary" disabled={workspace.loadingBalances} onClick={() => void workspace.refreshBalances()}>Refresh my balance</button>}
+      <button className="primary" disabled={result.status === 'pending'} onClick={workspace.closePaymentModal}>{result.status === 'pending' ? 'Waiting…' : 'Done'}</button>
+    </div>
+    <p className="fine">Solana devnet · test tokens have no financial value.</p>
+  </Modal>;
 }
 
 function ErrorBanner({ error }: { error: string }) {
@@ -439,7 +541,7 @@ function ThreadView({ workspace }: { workspace: Workspace }) {
         <button className="primary" onClick={() => { workspace.setTab('invoices'); workspace.setRoute('create'); }}><FileText size={17} /> Create the invoice</button>
       )}
       {canPay && <>
-        <button className="primary" disabled={workspace.paying} onClick={() => void workspace.pay(PROFILES[thread.sellerId as ProfileId].wallet.address, thread.id)}>
+        <button className="primary" disabled={workspace.paying} onClick={() => void workspace.pay(PROFILES[thread.sellerId as ProfileId].wallet.address, PROFILES[thread.sellerId as ProfileId].personName, thread.id)}>
           <ArrowUpRight size={17} /> {workspace.paying ? 'Confirming on devnet…' : `Pay ${formatUsdc(DEMO_SETTLEMENT_MICROS)} USDC on devnet`}
         </button>
         <p className="fine">{DEMO_SETTLEMENT_NOTE}</p>
@@ -713,7 +815,7 @@ function InvoiceDetailPage({ workspace }: { workspace: Workspace }) {
       <p>Invoice total: {formatUsdc(invoice.totalMicros)} USDC to {invoice.issuer}. SANAD charges no payment fee.</p>
       <p className="fine">{NETWORK_FEE_NOTE}</p>
       {isCustomer && <>
-        <button className="primary" disabled={workspace.busy || workspace.paying} onClick={() => void workspace.pay(invoice.payment.recipientWallet, workspace.activeThread?.id ?? null)}>
+        <button className="primary" disabled={workspace.busy || workspace.paying} onClick={() => void workspace.pay(invoice.payment.recipientWallet, invoice.issuer, workspace.threads.find((entry) => entry.invoice.id === invoice.reference)?.id ?? null)}>
           <ArrowUpRight size={17} /> {workspace.paying ? 'Confirming on devnet…' : `Pay ${formatUsdc(DEMO_SETTLEMENT_MICROS)} USDC on devnet`}
         </button>
         <p className="fine">{DEMO_SETTLEMENT_NOTE} Nothing is marked paid until the network confirms it.</p>
@@ -866,5 +968,6 @@ export default function App() {
       <button className="text-button" onClick={() => void workspace.copy(workspace.encryptedExport!.key, 'Decryption key copied. Share it separately.')}><Copy size={15} /> Copy decryption key</button>
       <p className="fine">Anyone with both the file and the key can read the invoice. Reopening this dialog creates a new encrypted file and key.</p>
     </Modal>}
+    {workspace.overlay === 'payment' && <PaymentModal workspace={workspace} />}
   </div>;
 }

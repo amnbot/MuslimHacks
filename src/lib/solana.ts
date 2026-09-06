@@ -248,12 +248,28 @@ export function signTransaction(message: Uint8Array, seed: Uint8Array): { wire: 
 
 let requestId = 0;
 
-export async function rpc<T>(method: string, params: unknown[], endpoint = DEVNET_RPC): Promise<T> {
-  const response = await fetch(endpoint, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ jsonrpc: '2.0', id: ++requestId, method, params }),
-  });
+/** Every RPC call is capped, so a dropped connection fails loudly instead of hanging forever. */
+const RPC_TIMEOUT_MS = 15_000;
+
+export async function rpc<T>(method: string, params: unknown[], endpoint = DEVNET_RPC, timeoutMs = RPC_TIMEOUT_MS): Promise<T> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  let response: Response;
+  try {
+    response = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: ++requestId, method, params }),
+      signal: controller.signal,
+    });
+  } catch (caught) {
+    if (caught instanceof Error && caught.name === 'AbortError') {
+      throw new Error(`Solana devnet did not respond to ${method} within ${Math.round(timeoutMs / 1000)}s. Check your connection and try again.`);
+    }
+    throw new Error(`Could not reach Solana devnet for ${method}. ${caught instanceof Error ? caught.message : 'Check your connection and try again.'}`);
+  } finally {
+    clearTimeout(timer);
+  }
   if (!response.ok) throw new Error(`Solana devnet returned ${response.status}. Check your connection and try again.`);
   const payload = await response.json() as { result?: T; error?: { message?: string } };
   if (payload.error) throw new Error(payload.error.message ?? `The ${method} request failed.`);
@@ -340,6 +356,20 @@ export function addressExplorerUrl(address: string): string {
 }
 
 /** Builds, signs, submits and confirms a USDC transfer. Rejects rather than reporting an unconfirmed payment. */
+/**
+ * A transaction that was actually broadcast but did not confirm within the wait
+ * window. It may still land later, so the signature is carried on the error and
+ * callers should offer the explorer link rather than treating this as never sent.
+ */
+export class PaymentTimeoutError extends Error {
+  readonly signature: string;
+  constructor(message: string, signature: string) {
+    super(message);
+    this.name = 'PaymentTimeoutError';
+    this.signature = signature;
+  }
+}
+
 export async function payUsdc(input: {
   from: Keypair; to: string; amountMicros: number; endpoint?: string;
 }): Promise<{ signature: string; slot: number | null }> {
@@ -349,6 +379,6 @@ export async function payUsdc(input: {
   const { wire, signature } = signTransaction(message, input.from.seed);
   const submitted = await sendRawTransaction(wire, endpoint);
   const confirmation = await confirmSignature(submitted, { endpoint });
-  if (!confirmation.confirmed) throw new Error(confirmation.error ?? 'This payment was not confirmed.');
+  if (!confirmation.confirmed) throw new PaymentTimeoutError(confirmation.error ?? 'This payment was not confirmed.', submitted || signature);
   return { signature: submitted || signature, slot: confirmation.slot };
 }

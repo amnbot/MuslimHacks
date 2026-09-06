@@ -12,14 +12,28 @@ import {
 } from '../../../src/lib/business';
 import { decryptRecord, encryptRecord, isEncryptedEnvelope } from '../crypto/envelope';
 import {
-  DEMO_SETTLEMENT_MICROS, DEMO_THREADS, PROFILES, calculateCosts, corridorOf,
+  DEMO_SETTLEMENT_MICROS, DEMO_THREADS, PROFILES, PaymentTimeoutError, calculateCosts, corridorOf,
   getSolBalance, getUsdcBalance, payUsdc, recommendRoute, requestAirdrop, roleInThread,
   type DemoMessage, type DemoThread, type FeeBearer, type ProfileId,
 } from '../shared';
 
 export type WorkspaceTab = 'chats' | 'invoices' | 'wallet';
 export type WorkspaceRoute = 'list' | 'thread' | 'create' | 'detail';
-export type WorkspaceModal = 'import' | 'export' | 'security' | 'routes' | 'agreement' | 'profile' | null;
+export type WorkspaceModal = 'import' | 'export' | 'security' | 'routes' | 'agreement' | 'profile' | 'payment' | null;
+
+export type PaymentResult = {
+  status: 'pending' | 'confirmed' | 'failed';
+  amountMicros: number;
+  fromLabel: string;
+  fromAddress: string;
+  toLabel: string;
+  toAddress: string;
+  signature: string | null;
+  error: string | null;
+  /** The recipient's live USDC balance, fetched right after confirmation. */
+  recipientBalanceMicros: number | null;
+  threadId: string | null;
+};
 
 const MAX_FILE_BYTES = 300_000;
 const messageOf = (error: unknown) => error instanceof Error ? error.message : 'Something went wrong. Please try again.';
@@ -62,6 +76,7 @@ export function useWorkspace() {
   const [balances, setBalances] = useState<Balances | null>(null);
   const [loadingBalances, setLoadingBalances] = useState(false);
   const [paying, setPaying] = useState(false);
+  const [paymentResult, setPaymentResult] = useState<PaymentResult | null>(null);
 
   // Ephemeral demo signing keys, one per business name, for this app session only.
   const signers = useRef<Record<string, BusinessSigner>>({});
@@ -138,7 +153,7 @@ export function useWorkspace() {
   function switchProfile(next: ProfileId) {
     setProfileId(next);
     setTab('chats'); setRoute('list'); setActiveThreadId(null); setSelectedId(null);
-    setModal(null); setError(''); setBalances(null); setStress(0);
+    setModal(null); setError(''); setBalances(null); setStress(0); setPaymentResult(null);
     setNotice(`Now viewing as ${PROFILES[next].personName}.`);
   }
 
@@ -367,63 +382,71 @@ export function useWorkspace() {
   }
 
   /**
-   * Submits the real devnet transfer for the open thread and records the confirmed
-   * signature. Nothing is marked settled until the network confirms it.
+   * Submits a real devnet transfer and tracks it as a PaymentResult the whole way:
+   * pending the instant it starts, then confirmed with a signature and the
+   * recipient's live balance, or failed with the actual error. The modal opens
+   * immediately so the button tap is never followed by silence.
    */
-  async function payThread(thread: DemoThread) {
+  async function runPayment(toAddress: string, toLabel: string, threadId: string | null) {
     if (paying) return;
-    const recipient = PROFILES[thread.sellerId as ProfileId];
-    if (!recipient) { setError('This supplier has no demo wallet. Use the Sfax Olive Co. conversation for a live payment.'); return; }
     setPaying(true); setError('');
+    setPaymentResult({
+      status: 'pending', amountMicros: DEMO_SETTLEMENT_MICROS,
+      fromLabel: profile.personName, fromAddress: profile.wallet.address,
+      toLabel, toAddress, signature: null, error: null, recipientBalanceMicros: null, threadId,
+    });
+    setModal('payment');
     try {
-      const result = await payUsdc({
-        from: profile.wallet, to: recipient.wallet.address, amountMicros: DEMO_SETTLEMENT_MICROS,
-      });
+      const result = await payUsdc({ from: profile.wallet, to: toAddress, amountMicros: DEMO_SETTLEMENT_MICROS });
       if (!mounted.current) return;
-      appendMessage(thread.id, {
-        kind: 'payment', id: randomUUID(), from: profileId, time: clockTime(),
-        amountMicros: DEMO_SETTLEMENT_MICROS, signature: result.signature,
-      });
-      advanceStage(thread.id, 'paid');
+      let recipientBalanceMicros: number | null = null;
+      try { recipientBalanceMicros = await getUsdcBalance(toAddress); } catch { /* the balance is a bonus, not required to show the result */ }
+      if (!mounted.current) return;
+      setPaymentResult((current) => current ? { ...current, status: 'confirmed', signature: result.signature, recipientBalanceMicros } : current);
+      if (threadId) {
+        appendMessage(threadId, {
+          kind: 'payment', id: randomUUID(), from: profileId, time: clockTime(),
+          amountMicros: DEMO_SETTLEMENT_MICROS, signature: result.signature,
+        });
+        advanceStage(threadId, 'paid');
+      }
       setNotice('Confirmed on Solana devnet.');
       await refreshBalances();
     } catch (caught) {
-      if (mounted.current) setError(messageOf(caught));
+      // A transaction that was broadcast but timed out while confirming still carries
+      // a real signature; show it so the explorer link works even in that case.
+      const signature = caught instanceof PaymentTimeoutError ? caught.signature : null;
+      if (mounted.current) {
+        setError(messageOf(caught));
+        setPaymentResult((current) => current ? { ...current, status: 'failed', error: messageOf(caught), signature } : current);
+      }
     } finally {
       if (mounted.current) setPaying(false);
     }
   }
 
+  /** Submits the real devnet transfer for the open thread. */
+  async function payThread(thread: DemoThread) {
+    const recipient = PROFILES[thread.sellerId as ProfileId];
+    if (!recipient) { setError('This supplier has no demo wallet. Use the Sfax Olive Co. conversation for a live payment.'); return; }
+    await runPayment(recipient.wallet.address, recipient.personName, thread.id);
+  }
+
   /** Pays the open invoice's signed recipient wallet, for the demo amount. */
   async function payInvoice() {
-    if (!selected || paying) return;
-    setPaying(true); setError('');
-    try {
-      const result = await payUsdc({
-        from: profile.wallet, to: selected.invoice.payment.recipientWallet, amountMicros: DEMO_SETTLEMENT_MICROS,
-      });
-      if (!mounted.current) return;
-      const thread = threads.find((entry) => entry.invoice.id === selected.invoice.reference);
-      if (thread) {
-        appendMessage(thread.id, {
-          kind: 'payment', id: randomUUID(), from: profileId, time: clockTime(),
-          amountMicros: DEMO_SETTLEMENT_MICROS, signature: result.signature,
-        });
-        advanceStage(thread.id, 'paid');
-      }
-      setNotice('Confirmed on Solana devnet.');
-      await refreshBalances();
-    } catch (caught) {
-      if (mounted.current) setError(messageOf(caught));
-    } finally {
-      if (mounted.current) setPaying(false);
-    }
+    if (!selected) return;
+    const thread = threads.find((entry) => entry.invoice.id === selected.invoice.reference);
+    await runPayment(selected.invoice.payment.recipientWallet, selected.invoice.issuer, thread?.id ?? null);
+  }
+
+  function closePaymentModal() {
+    setModal(null);
   }
 
   function resetDemo() {
     setThreads(clone(DEMO_THREADS));
     setActiveThreadId(null); setSelectedId(null); setModal(null); setRoute('list'); setTab('chats');
-    setStress(0); setError(''); setBalances(null);
+    setStress(0); setError(''); setBalances(null); setPaymentResult(null);
     setNotice('Seeded conversations restored. Ready for another walkthrough.');
   }
 
@@ -438,6 +461,7 @@ export function useWorkspace() {
     checkAlteredCopy, copy, openLink,
     importText, setImportText, importKey, setImportKey, encryptedExport,
     balances, loadingBalances, refreshBalances, requestSol, payThread, payInvoice, paying,
+    paymentResult, closePaymentModal,
   };
 }
 

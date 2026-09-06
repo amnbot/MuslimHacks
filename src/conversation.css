@@ -136,6 +136,31 @@ input[type=range]{min-height:44px;padding:0;border:0;background:transparent;acce
 .funding-section>.primary,.funding-section>.secondary{width:100%;margin-top:11px}
 .wallet-receive>code,.balance-card+section code{display:block;padding:12px;background:#f3eef7;border-radius:9px;color:#735989}
 
+/* Payment result modal: pending / confirmed / failed, with the real transaction detail. */
+.payment-status{display:flex;align-items:center;gap:13px;padding:15px;border-radius:14px;background:#f3eef8;color:#675083;margin-bottom:18px}
+.payment-status.is-confirmed{background:#eaf8f3;color:#2f746b}
+.payment-status.is-failed{background:#fff1ea;color:#8b4b46}
+.payment-status strong{display:block;font-size:15px}
+.payment-status small{display:block;margin-top:2px;font-size:12px;color:inherit;opacity:.85}
+.payment-status svg{flex-shrink:0}
+.payment-status .spin{animation:sanad-spin 1s linear infinite}
+@keyframes sanad-spin{to{transform:rotate(360deg)}}
+.payment-amount{text-align:center;padding:6px 0 20px}
+.payment-amount small{display:block;font-size:11px;color:var(--muted)}
+.payment-amount strong{font-family:Lora,Georgia,serif;font-size:32px;font-weight:400;font-variant-numeric:tabular-nums}
+.payment-amount strong small{font-family:Manrope,sans-serif;font-size:13px}
+.payment-parties{display:flex;gap:16px;margin-bottom:18px}
+.payment-parties>div{flex:1;min-width:0}
+.payment-parties small{display:block;font-size:11px;color:var(--muted)}
+.payment-parties strong{display:block;margin-top:2px;font-size:14px}
+.payment-parties code{display:block;margin-top:4px;font-size:10px;color:var(--muted)}
+.payment-recipient{padding:14px;border-radius:13px;background:#eaf8f3;color:#2f746b;margin:18px 0}
+.payment-recipient strong{display:block;font-size:13px}
+.payment-recipient p{font-size:12px;color:inherit;margin-top:4px}
+.payment-recipient .text-button{color:#2f746b}
+.dialog-body>.payment-details{margin-top:0;margin-bottom:18px}
+.dialog-body .error-banner{margin-bottom:18px}
+
 @media(max-width:600px){
   .tile-row{gap:10px}
   .tile strong{font-size:20px}

@@ -22,11 +22,15 @@ const WIDTHS = [320, 390, 768, 1000, 1440];
 
   // Keep the check offline and deterministic. Devnet RPC is the only network the app
   // talks to, and each method is answered in its real response shape.
+  const FAKE_SIGNATURE = '4uQeVj5tqViQh7yWWGStvkEG1Zmhx6uasJtWCJziofM1nrouKzrNhs9Fzr6WdWtQvJf7GEqPzZmqAy3fCUcvgWvC';
   await context.route('https://api.devnet.solana.com/**', async (route) => {
     const { method, id } = JSON.parse(route.request().postData() || '{}');
     const results = {
       getBalance: { context: { slot: 1 }, value: 1_500_000_000 },
       getTokenAccountBalance: { context: { slot: 1 }, value: { amount: '12500000', decimals: 6, uiAmountString: '12.5' } },
+      getLatestBlockhash: { context: { slot: 1 }, value: { blockhash: '11111111111111111111111111111111', lastValidBlockHeight: 1 } },
+      sendTransaction: FAKE_SIGNATURE,
+      getSignatureStatuses: { context: { slot: 2 }, value: [{ slot: 2, confirmations: 1, err: null, confirmationStatus: 'confirmed' }] },
     };
     route.fulfill({
       status: 200, contentType: 'application/json',
@@ -128,6 +132,30 @@ const WIDTHS = [320, 390, 768, 1000, 1440];
   await page.getByRole('button', { name: 'Sign acknowledgement' }).click();
   await page.getByText('Acknowledged').first().waitFor({ timeout: 15000 });
   pass('the customer signs an independent acknowledgement');
+
+  // The exact bug report: click "Pay 1.00 USDC on devnet" and expect full feedback —
+  // a modal that goes pending -> confirmed, with a signature, explorer link and the
+  // recipient's live balance. Never silence.
+  await page.getByRole('button', { name: /Pay 1\.00 USDC on devnet/ }).click();
+  await page.getByRole('heading', { name: /Sending payment|Payment confirmed/ }).waitFor({ timeout: 2000 });
+  pass('clicking Pay opens a result modal immediately, no silent click');
+
+  await page.getByRole('heading', { name: 'Payment confirmed' }).waitFor({ timeout: 15000 });
+  await page.getByText('Submitting to Solana devnet…').waitFor({ state: 'hidden' }).catch(() => {});
+  const paymentBody = await page.locator('.dialog-body').innerText();
+  assert.match(paymentBody, /1\.00\s*USDC/);
+  assert.match(paymentBody, new RegExp(FAKE_SIGNATURE));
+  assert.match(paymentBody, /Now holds .*USDC on devnet/);
+  pass('the confirmed payment shows amount, signature and the recipient’s live balance');
+
+  const explorerHref = await page.getByRole('link', { name: /View on Solana Explorer/ }).getAttribute('href');
+  assert.match(explorerHref, /explorer\.solana\.com\/tx\//);
+  assert.match(explorerHref, /cluster=devnet/);
+  pass('a real explorer link is offered for the transaction');
+
+  await page.getByRole('button', { name: 'Done' }).click();
+  await page.getByRole('heading', { name: 'Payment confirmed' }).waitFor({ state: 'hidden' });
+  pass('the payment modal closes on Done');
 
   // Devnet honesty: the wallet must name the network and disclaim value.
   await page.getByRole('button', { name: 'Wallet' }).first().click();
