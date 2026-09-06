@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-05T23:30:00.000Z",
+  "title": "Design System: SANAD",
+  "extensions": {
+    "motion": [{ "name": "seal-reveal", "value": "650ms cubic-bezier(.16,1,.3,1)", "purpose": "Reveal the completed seal; disabled for reduced motion." }],
+    "shadows": [{ "name": "dialog", "value": "0 24px 80px #183e3833", "purpose": "Lift the focused task above the workspace." }],
+    "breakpoints": [{ "name": "expanded", "value": "520px" }, { "name": "desktop", "value": "960px" }]
+  },
+  "components": [
+    { "name": "Primary action", "kind": "button", "refersTo": "button-primary", "description": "The next action in the trade workflow, sized for touch.", "html": "<button class=\"ds-primary\">Review agreement</button>", "css": ".ds-primary{font:600 15px/1.6 Manrope,sans-serif;background:#183e38;color:#fffefa;border:1px solid transparent;border-radius:9px;min-height:52px;padding:13px 15px;cursor:pointer}.ds-primary:hover{background:#2b594a}.ds-primary:focus-visible{outline:3px solid #b27e45;outline-offset:4px}@media(min-width:960px){.ds-primary{font-size:14px}}" },
+    { "name": "Secondary action", "kind": "button", "description": "A supporting review or record action.", "html": "<button class=\"ds-secondary\">Check original</button>", "css": ".ds-secondary{font:600 15px/1.6 Manrope,sans-serif;color:#406037;background:#f5f8ee;border:1px solid #c8d8b6;border-radius:9px;min-height:52px;padding:13px 15px;cursor:pointer}.ds-secondary:hover{background:#e9f0dd}.ds-secondary:focus-visible{outline:3px solid #b27e45;outline-offset:4px}@media(min-width:960px){.ds-secondary{font-size:14px}}" },
+    { "name": "Invoice input", "kind": "input", "description": "A labeled editable scenario value, with 16px input text on mobile.", "html": "<label class=\"ds-label\">Quantity · bottles<input class=\"ds-input\" value=\"480\" type=\"number\"></label>", "css": ".ds-label{display:grid;gap:8px;font:600 12px Manrope,sans-serif;color:#59714b}.ds-input{min-height:49px;padding:13px 10px;border:1px solid #c9d9b7;border-radius:7px;background:#f6faef;color:#263e38;font:400 16px Manrope,sans-serif}.ds-input:focus-visible{outline:3px solid #b27e45;outline-offset:4px}" },
+    { "name": "Demo label", "kind": "chip", "description": "Label authored scenario assumptions near the decision.", "html": "<span class=\"ds-demo\">Illustrative rates &amp; fees</span>", "css": ".ds-demo{display:inline-block;background:#eaf0e0;color:#58684d;border-radius:5px;padding:5px 7px;font:500 10px Manrope,sans-serif}" },
+    { "name": "Workspace panel", "kind": "card", "refersTo": "workspace-panel", "description": "A mobile-first finance sheet separated by a quiet border.", "html": "<section class=\"ds-panel\"><strong>How should this invoice be paid?</strong><p>Compare the full cost of your invoice.</p></section>", "css": ".ds-panel{padding:22px 16px 17px;background:#fffefa;color:#263e38;border:1px solid #dde3d5;border-radius:12px;font:400 13px Manrope,sans-serif}.ds-panel strong{font-size:21px;line-height:1.4;font-weight:600}.ds-panel p{color:#5f6f63;line-height:1.8}@media(min-width:520px){.ds-panel{padding:26px 25px 20px}.ds-panel strong{font-size:23px}}" }
+  ],
+  "narrative": {
+    "northStar": "The importer's correspondence desk",
+    "overview": "A calm daylight interface connects separate Chat and Finance screens through one invoice. Bottom navigation becomes a desktop rail at 960px; the two screens remain separate.",
+    "keyCharacteristics": ["Clear figures", "Familiar conversation", "Ruled agreement", "Visible uncertainty"],
+    "rules": [{ "name": "The State Rule", "body": "A selected route, a resolved fee question and a verified signature have distinct text, not color alone.", "section": "colors" }],
+    "dos": ["Do preserve aligned money columns and explicit currency context.", "Do keep Chat and Finance separate and retain the invoice link between them."],
+    "donts": ["Don't imply that a signature verifies a person's legal identity."]
+  }
+}
