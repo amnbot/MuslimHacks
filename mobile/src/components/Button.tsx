@@ -65,7 +65,7 @@ export function IconButton({ icon: Icon, label, onPress, size = 21, color = colo
       accessibilityLabel={label}
       onPress={onPress}
       hitSlop={4}
-      style={({ pressed }) => [styles.icon, pressed && { backgroundColor: '#e6ecdc' }, style]}
+      style={({ pressed }) => [styles.icon, pressed && { backgroundColor: '#f1eaf7' }, style]}
     >
       <Icon size={size} color={color} strokeWidth={1.7} />
     </Pressable>
@@ -109,7 +109,7 @@ const styles = StyleSheet.create({
   icon: {
     width: 44,
     height: 44,
-    borderRadius: 8,
+    borderRadius: 13,
     alignItems: 'center',
     justifyContent: 'center',
   },

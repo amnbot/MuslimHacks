@@ -22,7 +22,7 @@ function P({ children }: { children: React.ReactNode }) {
 function Bullets({ items }: { items: string[] }) {
   return (
     <View style={{ gap: 4 }}>
-      {items.map((item) => <T key={item} size={13} color="#5b754b" lineHeight={24}>{'•'}  {item}</T>)}
+      {items.map((item) => <T key={item} size={13} color="#6f6678" lineHeight={24}>{'•'}  {item}</T>)}
     </View>
   );
 }
@@ -30,8 +30,8 @@ function Bullets({ items }: { items: string[] }) {
 export function SourceLink({ label, url, style }: { label: string; url: string; style?: object }) {
   return (
     <Pressable accessibilityRole="link" accessibilityLabel={label} onPress={() => { void Linking.openURL(url); }} style={({ pressed }) => [styles.link, pressed && { opacity: 0.8 }, style]}>
-      <T size={12} color="#476b36" lineHeight={20} style={{ flex: 1 }}>{label}</T>
-      <ArrowUpRight size={15} color="#476b36" strokeWidth={1.8} />
+      <T size={12} color="#6750a8" lineHeight={20} style={{ flex: 1 }}>{label}</T>
+      <ArrowUpRight size={15} color="#6750a8" strokeWidth={1.8} />
     </Pressable>
   );
 }
@@ -67,6 +67,6 @@ export function SourcesSheet({ onClose }: { onClose: () => void }) {
 }
 
 const styles = StyleSheet.create({
-  columns: { gap: 19, borderBottomWidth: 1, borderBottomColor: '#dde3d5', paddingBottom: 15 },
-  link: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 9, backgroundColor: '#edf4e2', borderRadius: 7, padding: 12, minHeight: 44 },
+  columns: { gap: 19, borderBottomWidth: 1, borderBottomColor: '#e8e1eb', paddingBottom: 15 },
+  link: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 9, backgroundColor: '#f3eef8', borderRadius: 7, padding: 12, minHeight: 44 },
 });

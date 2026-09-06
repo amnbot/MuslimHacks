@@ -1,0 +1,44 @@
+{
+  "title": "Choose the hybrid composition",
+  "question": "All three use Mashrabiya daylight with a parametric Arabic counterseal. Choose the composition that should become the web and mobile build.",
+  "followup": true,
+  "options": [
+    {
+      "id": "hybrid-a",
+      "label": "Daylight-led conversation",
+      "kicker": "CHAT FIRST",
+      "lineage": "Mashrabiya daylight with a compact unresolved counterseal",
+      "thesis": "The invoice is the luminous hinge inside the conversation.",
+      "palette": ["#FCFBF8", "#E8D8FF", "#BCEDE7", "#2B2540", "#FF8FCC"],
+      "materials": ["diffused geometric daylight", "porcelain chat surfaces", "open counterseal"],
+      "viewport": "Chat leads; the €6,000 invoice and Review payment options bridge become the dominant center object.",
+      "risk": "The generated SANAD insight contains a factual claim that will be replaced with the existing neutral product copy.",
+      "comp": ".impeccable/mocks/hybrid-a.webp"
+    },
+    {
+      "id": "hybrid-b",
+      "label": "Counterseal cost axis",
+      "kicker": "FINANCE FIRST",
+      "lineage": "A bilateral payer/recipient instrument organized by the counterseal",
+      "thesis": "The shared consequence is the page: supplier receipt and buyer outlay meet at the seal.",
+      "palette": ["#FCFBF8", "#E8D8FF", "#BCEDE7", "#2B2540", "#FF8FCC"],
+      "materials": ["porcelain decision sheet", "bilateral counterseal", "state-colored quote rails"],
+      "viewport": "Finance leads with routes above and the buyer/supplier consequence axis as the focal moment.",
+      "risk": "This is the densest option and needs disciplined scaling on smaller phones.",
+      "comp": ".impeccable/mocks/hybrid-b.webp"
+    },
+    {
+      "id": "hybrid-c",
+      "label": "Continuous shared folio",
+      "kicker": "BALANCED",
+      "lineage": "One porcelain sheet from invoice to signed agreement",
+      "thesis": "The entire decision reads as one continuous bilingual folio, with the seal showing progress rather than decorating the page.",
+      "palette": ["#FCFBF8", "#E8D8FF", "#BCEDE7", "#2B2540", "#FF8FCC"],
+      "materials": ["single porcelain folio", "daylight frame", "three-stage counterseal rail"],
+      "viewport": "Finance uses one continuous sheet with exact totals, stacked routes, fee ownership, and a closing agreement action.",
+      "risk": "The generated comp over-labels all routes as simulations; the build will keep that label only on USDC and retain the existing synthetic-source disclosure.",
+      "comp": ".impeccable/mocks/hybrid-c.webp"
+    }
+  ],
+  "steer": true
+}

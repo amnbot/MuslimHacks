@@ -27,9 +27,9 @@ export function VerifySheet({ deal, onClose }: { deal: Deal; onClose: () => void
       <T size={14} color={sheetColors.intro} lineHeight={26} style={{ marginBottom: 22 }}>Verify a shared SANAD record, or test this agreement. Checks run locally on your device.</T>
       <View style={{ gap: 17 }}>
         <Pressable accessibilityRole="button" accessibilityLabel="Choose a signed record" onPress={() => { void pickRecord(); }} style={({ pressed }) => [styles.upload, pressed && { opacity: 0.8 }]}>
-          <FolderOpen size={20} color="#52783e" strokeWidth={1.7} />
-          <T weight="bold" size={14} color="#52783e">Choose a signed record</T>
-          <T size={11} color="#52783e">.json · up to 200 KB</T>
+          <FolderOpen size={20} color="#6750a8" strokeWidth={1.7} />
+          <T weight="bold" size={14} color="#6750a8">Choose a signed record</T>
+          <T size={11} color="#6750a8">.json · up to 200 KB</T>
         </Pressable>
         <Disclosure label="Or paste a JSON record" size={12} weight="regular" contentStyle={{ gap: 10, paddingBottom: 6 }}>
           <TextInput
@@ -37,7 +37,7 @@ export function VerifySheet({ deal, onClose }: { deal: Deal; onClose: () => void
             value={verifyText}
             onChangeText={(value) => setVerifyText(value.slice(0, 200_000))}
             placeholder="Paste the full contents of a SANAD export"
-            placeholderTextColor="#6a7c5c"
+            placeholderTextColor="#817a86"
             multiline
             autoCapitalize="none"
             autoCorrect={false}
@@ -82,7 +82,7 @@ export function VerifySheet({ deal, onClose }: { deal: Deal; onClose: () => void
 }
 
 const styles = StyleSheet.create({
-  upload: { alignItems: 'center', gap: 9, paddingVertical: 20, paddingHorizontal: 13, backgroundColor: '#f0f6e7', borderWidth: 1, borderStyle: 'dashed', borderColor: '#95b279', borderRadius: 10 },
-  textarea: { minHeight: 150, backgroundColor: '#f7faf0', borderWidth: 1, borderColor: '#bfd3a9', borderRadius: 7, padding: 12, fontFamily: fonts.mono, fontSize: 13, color: colors.ink },
+  upload: { alignItems: 'center', gap: 9, paddingVertical: 20, paddingHorizontal: 13, backgroundColor: '#f3eef8', borderWidth: 1, borderStyle: 'dashed', borderColor: '#bca6d0', borderRadius: 10 },
+  textarea: { minHeight: 150, backgroundColor: '#fffefa', borderWidth: 1, borderColor: '#ded4e3', borderRadius: 7, padding: 12, fontFamily: fonts.mono, fontSize: 13, color: colors.ink },
   result: { padding: 16, borderRadius: 9, marginTop: 22 },
 });

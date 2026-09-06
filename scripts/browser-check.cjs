@@ -1,15 +1,17 @@
 /* Reproducible browser acceptance check. Set PLAYWRIGHT_MODULE to a bundled
  * playwright module directory, or install playwright locally to use this file. */
-const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
+const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright-core');
 const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
 const path = require('node:path');
 
 (async () => {
-  const browser = await chromium.launch({ headless: true, ...(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {}) });
+  const capture = !process.argv.includes('--no-capture');
+  const executablePath = process.env.CHROMIUM_PATH || 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
+  const browser = await chromium.launch({ headless: true, executablePath });
   const context = await browser.newContext({ viewport: { width: 1440, height: 1100 }, reducedMotion: 'reduce' });
   const page = await context.newPage();
-  const base = process.env.SANAD_URL || 'http://127.0.0.1:5173/';
+  const base = process.env.SANAD_URL || 'http://127.0.0.1:4173/';
   const errors = [];
   const externalRequests = [];
   context.on('page', p => p.on('pageerror', e => errors.push(e.message)));
@@ -25,7 +27,7 @@ const path = require('node:path');
     assert.equal(await page.locator('.conversation').count(), 0);
     await page.getByRole('heading', { name: 'How should this invoice be paid?' }).waitFor();
     await page.evaluate(() => document.fonts.ready);
-    await page.screenshot({ path: '.impeccable/review/desktop.png', fullPage: true });
+    if (capture) await page.screenshot({ path: '.impeccable/review/desktop.png', fullPage: true });
     assert.match(await page.locator('.receipt-callout').innerText(), /5,965/);
     await page.getByRole('radio', { name: /Specialist transfer/ }).click();
     await page.getByLabel('Who covers downstream fees?').selectOption('buyer');
@@ -66,7 +68,7 @@ const path = require('node:path');
     assert.equal(await page.locator('.signature-slot.signed').count(), 2);
     assert.equal(await page.locator('.hash-strip code').innerText(), firstHash);
     await page.evaluate(() => window.scrollTo(0, 0));
-    await page.screenshot({ path: '.impeccable/review/sealed.png', fullPage: true });
+    if (capture) await page.screenshot({ path: '.impeccable/review/sealed.png', fullPage: true });
     const downloadPromise = page.waitForEvent('download');
     await page.getByRole('button', { name: 'Download signed record', exact: true }).click();
     const download = await downloadPromise;
@@ -82,7 +84,7 @@ const path = require('node:path');
     await page.getByRole('heading', { name: 'Record intact. Both signatures valid.' }).waitFor();
     await page.getByRole('button', { name: 'Test a changed amount' }).click();
     await page.getByRole('heading', { name: 'This record did not pass verification.' }).waitFor();
-    await page.screenshot({ path: '.impeccable/review/verification.png', fullPage: true });
+    if (capture) await page.screenshot({ path: '.impeccable/review/verification.png', fullPage: true });
     await page.getByRole('button', { name: 'Check original' }).click();
     await page.getByRole('heading', { name: 'Record intact. Both signatures valid.' }).waitFor();
     await page.getByRole('button', { name: 'Close dialog' }).click();
@@ -119,7 +121,7 @@ const path = require('node:path');
     await mobile.goto(base);
     await mobile.getByRole('heading', { name: 'Amira Ben Youssef' }).waitFor();
     await mobile.evaluate(() => document.fonts.ready);
-    await mobile.screenshot({ path: '.impeccable/review/mobile-chat.png', fullPage: true });
+    if (capture) await mobile.screenshot({ path: '.impeccable/review/mobile-chat.png', fullPage: true });
     assert.equal(await mobile.locator('.decision-sheet').count(), 0);
     const composer = await mobile.locator('.message-input').boundingBox();
     assert.ok(composer.y + composer.height <= 844 - 72, 'Composer stays above bottom navigation');
@@ -127,7 +129,7 @@ const path = require('node:path');
     await mobile.getByRole('heading', { name: 'How should this invoice be paid?' }).waitFor();
     await mobile.evaluate(() => document.fonts.ready);
     assert.equal(await mobile.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
-    await mobile.screenshot({ path: '.impeccable/review/mobile.png', fullPage: true });
+    if (capture) await mobile.screenshot({ path: '.impeccable/review/mobile.png', fullPage: true });
     await mobile.getByRole('radio', { name: /USDC route/ }).click();
     await mobile.getByLabel('Who covers downstream fees?').selectOption('buyer');
     assert.match(await mobile.getByRole('radio', { name: /USDC route/ }).innerText(), /9,164\.12/);
@@ -156,7 +158,7 @@ const path = require('node:path');
     await mobile.getByRole('heading', { name: 'Agreed. And worth keeping.' }).waitFor();
     assert.equal(await mobile.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
     await mobile.evaluate(() => window.scrollTo(0, 0));
-    await mobile.screenshot({ path: '.impeccable/review/mobile-sealed.png', fullPage: true });
+    if (capture) await mobile.screenshot({ path: '.impeccable/review/mobile-sealed.png', fullPage: true });
     const usdcDownloadPromise = mobile.waitForEvent('download');
     await mobile.getByRole('button', { name: 'Download signed record', exact: true }).click();
     const usdcDownload = await usdcDownloadPromise;
@@ -180,6 +182,6 @@ const path = require('node:path');
     const result = { status: 'passed', checked: ['quote comparison', 'fee responsibility', 'FX scenario', 'chat', 'consent gating', 'two-tab signing and sync', 'same-tab signing', 'download/import', 'tamper detection', 'original unchanged', 'revision invalidation', 'editable invoice', 'invalid input', 'reset', 'mobile signing', 'no horizontal overflow', 'no uncaught errors', 'no third-party runtime requests', 'separate Chat and Finance screens', 'browser back navigation', 'USDC full-cost decomposition', 'USDC signed export/import', '320px and landscape layouts'], desktop: '1440×1100', mobile: '390×844', errors, externalRequests };
     await fs.writeFile('test-results/browser-check.json', JSON.stringify(result, null, 2));
     console.log(JSON.stringify(result, null, 2));
-  } catch (error) { await page.screenshot({ path: 'test-results/failure.png', fullPage: true }); throw error; }
+  } catch (error) { if (capture) await page.screenshot({ path: 'test-results/failure.png', fullPage: true }); throw error; }
   finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

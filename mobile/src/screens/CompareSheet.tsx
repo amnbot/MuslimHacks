@@ -14,12 +14,12 @@ function Row({ label, hint, value, valueHint, total = false }: { label: string; 
   return (
     <View style={[styles.row, total && styles.totalRow]}>
       <View style={{ flex: 1 }}>
-        <T weight={total ? 'bold' : 'regular'} size={13} color={total ? colors.ink : '#5e7053'} lineHeight={20}>{label}</T>
-        {hint && <T size={10} color="#647955" lineHeight={14} style={{ marginTop: 3 }}>{hint}</T>}
+        <T weight={total ? 'bold' : 'regular'} size={13} color={total ? colors.ink : '#716879'} lineHeight={20}>{label}</T>
+        {hint && <T size={10} color="#7a7282" lineHeight={14} style={{ marginTop: 3 }}>{hint}</T>}
       </View>
       <View style={{ alignItems: 'flex-end', flexShrink: 0 }}>
         <T weight={total ? 'bold' : 'regular'} size={13} lineHeight={20} tabular>{value}</T>
-        {valueHint && <T size={10} color="#647955" lineHeight={14} style={{ marginTop: 3 }}>{valueHint}</T>}
+        {valueHint && <T size={10} color="#7a7282" lineHeight={14} style={{ marginTop: 3 }}>{valueHint}</T>}
       </View>
     </View>
   );
@@ -41,9 +41,9 @@ export function CompareSheet({ deal }: { deal: Deal }) {
       </View>
 
       <Pressable accessibilityRole="button" onPress={() => setModal('sources')} style={styles.dataNote}>
-        <FlaskConical size={14} color="#5f734f" strokeWidth={1.8} />
-        <T size={11} color="#5f734f" style={{ flex: 1 }}>Illustrative rates & fees · see assumptions</T>
-        <ArrowUpRight size={14} color="#5f734f" strokeWidth={1.8} />
+        <FlaskConical size={14} color="#675b73" strokeWidth={1.8} />
+        <T size={11} color="#675b73" style={{ flex: 1 }}>Illustrative rates & fees · see assumptions</T>
+        <ArrowUpRight size={14} color="#675b73" strokeWidth={1.8} />
       </Pressable>
 
       <View style={styles.options} accessibilityRole="radiogroup" accessibilityLabel="Payment route">
@@ -60,23 +60,23 @@ export function CompareSheet({ deal }: { deal: Deal }) {
               onPress={() => setQuoteId(option.id)}
               style={({ pressed }) => [styles.option, active && styles.optionSelected, pressed && { opacity: 0.85 }]}
             >
-              <View style={[styles.radio, active && { borderColor: '#52733d' }]}>{active && <View style={styles.radioDot} />}</View>
+              <View style={[styles.radio, active && { borderColor: '#8f65db' }]}>{active && <View style={styles.radioDot} />}</View>
               <View style={{ flex: 1 }}>
                 <View style={styles.optionTitle}>
                   <T weight="bold" size={14} lineHeight={20}>{option.name}</T>
                   {index === 1 && <View style={styles.tag}><T size={9} lineHeight={12} color={colors.tintText}>Lowest estimate</T></View>}
-                  {optionIsUsdc && <View style={[styles.tag, { backgroundColor: '#eaece5' }]}><T size={9} lineHeight={12} color="#596e51">Simulation</T></View>}
+                  {optionIsUsdc && <View style={[styles.tag, { backgroundColor: '#fde8f3' }]}><T size={9} lineHeight={12} color="#6d5780">Simulation</T></View>}
                 </View>
                 <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 7, marginTop: 11 }}>
                   <T weight="semibold" size={27} lineHeight={34} tabular style={{ letterSpacing: -0.9 }}>{cad(result.totalMaxCad)}</T>
-                  <T weight="medium" size={10} color="#627651">CAD</T>
+                  <T weight="medium" size={10} color="#716879">CAD</T>
                 </View>
-                <T size={10} color="#617351" lineHeight={16} style={{ marginTop: 2 }}>{buyerCovers ? 'Includes estimated fee reserve' : 'Estimated buyer outlay'}</T>
-                <T size={11} color="#5c734c" lineHeight={19} style={{ marginTop: 11 }}>
+                <T size={10} color="#716879" lineHeight={16} style={{ marginTop: 2 }}>{buyerCovers ? 'Includes estimated fee reserve' : 'Estimated buyer outlay'}</T>
+                <T size={11} color="#716879" lineHeight={19} style={{ marginTop: 11 }}>
                   {optionIsUsdc ? 'CAD → USDC → EUR · FX still applies' : `${option.delivery.split(' ·')[0]} · ${markupPercent(option)}% FX markup`}
                 </T>
               </View>
-              {active && <Check size={20} color="#4f6e3d" strokeWidth={2} style={{ marginTop: 2 }} />}
+              {active && <Check size={20} color="#8f65db" strokeWidth={2} style={{ marginTop: 2 }} />}
             </Pressable>
           );
         })}
@@ -84,18 +84,18 @@ export function CompareSheet({ deal }: { deal: Deal }) {
 
       {isUsdc ? (
         <View style={styles.usdcContext}>
-          <Coins size={21} color="#49623c" strokeWidth={1.7} style={{ marginTop: 2 }} />
+          <Coins size={21} color="#376f68" strokeWidth={1.7} style={{ marginTop: 2 }} />
           <View style={{ flex: 1 }}>
-            <T weight="bold" size={13} color="#49623c" lineHeight={22}>Digital dollars. Still two currency conversions.</T>
-            <T size={12} color="#596e4c" lineHeight={21} style={{ marginTop: 5 }}>The buyer pays CAD and Amira receives EUR. USDC changes the route, not the invoice currency.</T>
+            <T weight="bold" size={13} color="#376f68" lineHeight={22}>Digital dollars. Still two currency conversions.</T>
+            <T size={12} color="#55756f" lineHeight={21} style={{ marginTop: 5 }}>The buyer pays CAD and Amira receives EUR. USDC changes the route, not the invoice currency.</T>
             <TextButton label="See the full USDC path" icon={ArrowRight} iconPosition="right" onPress={() => setModal('usdc')} />
           </View>
         </View>
       ) : (
         <Pressable accessibilityRole="button" onPress={() => setModal('usdc')} style={styles.usdcLearn}>
-          <Coins size={18} color="#526f42" strokeWidth={1.7} />
-          <T size={12} color="#526f42" style={{ flex: 1 }}>Would USDC remove the FX cost?</T>
-          <ChevronRight size={17} color="#526f42" strokeWidth={1.8} />
+          <Coins size={18} color="#635477" strokeWidth={1.7} />
+          <T size={12} color="#635477" style={{ flex: 1 }}>Would USDC remove the FX cost?</T>
+          <ChevronRight size={17} color="#635477" strokeWidth={1.8} />
         </Pressable>
       )}
 
@@ -105,7 +105,7 @@ export function CompareSheet({ deal }: { deal: Deal }) {
           <T weight="semibold" size={14} color={buyerCovers ? colors.resolvedText : colors.warningText} lineHeight={23}>
             {buyerCovers ? 'You’ve accounted for the supplier’s full invoice.' : `The supplier could receive ${eur(costs.recipientMinEur)}.`}
           </T>
-          <T size={12} color={buyerCovers ? '#58724a' : colors.warningSub} lineHeight={21} style={{ marginTop: 5 }}>
+          <T size={12} color={buyerCovers ? '#54756f' : colors.warningSub} lineHeight={21} style={{ marginTop: 5 }}>
             {buyerCovers
               ? `The buyer allows up to ${cad(costs.feeReserveCad)} for downstream fees. Final charges still need confirmation.`
               : `That’s up to ${eur(invoice.amountEur - costs.recipientMinEur)} short. Who covers the difference?`}
@@ -151,7 +151,7 @@ export function CompareSheet({ deal }: { deal: Deal }) {
 
       <Disclosure label="What if the exchange rate changes?" icon={SlidersHorizontal} hint="Explore" size={13} weight="regular">
         <View style={styles.stress}>
-          <T size={12} color="#5b714d" lineHeight={22}>A scenario, never a forecast. Positive values mean the euro costs more Canadian dollars. This does not change your agreement.</T>
+          <T size={12} color="#6f6678" lineHeight={22}>A scenario, never a forecast. Positive values mean the euro costs more Canadian dollars. This does not change your agreement.</T>
           <View style={styles.sliderLabel}>
             <T size={12}>Change in CAD cost per euro</T>
             <T weight="semibold" size={21} tabular>{stress > 0 ? '+' : ''}{stress}%</T>
@@ -163,26 +163,26 @@ export function CompareSheet({ deal }: { deal: Deal }) {
             step={1}
             value={stress}
             onValueChange={(value) => setStress(Math.round(value))}
-            minimumTrackTintColor="#3c673b"
-            maximumTrackTintColor="#cad7bb"
-            thumbTintColor="#3c673b"
+            minimumTrackTintColor="#8f65db"
+            maximumTrackTintColor="#ddd3e1"
+            thumbTintColor="#8f65db"
             style={{ width: '100%', height: 44 }}
           />
           <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-            <T size={10} color="#607951">−10% · cheaper</T>
-            <T size={10} color="#607951">+10% · more expensive</T>
+            <T size={10} color="#766f7e">−10% · cheaper</T>
+            <T size={10} color="#766f7e">+10% · more expensive</T>
           </View>
           <View style={styles.scenario}>
             <View style={{ flex: 1 }}>
-              <T size={11} color="#5b724b" lineHeight={17}>Buyer outlay, upper estimate</T>
+              <T size={11} color="#756e7c" lineHeight={17}>Buyer outlay, upper estimate</T>
               <T weight="semibold" size={21} tabular style={{ marginTop: 7, letterSpacing: -0.4 }}>{cad(scenario.totalMaxCad)}</T>
             </View>
             <View style={{ flex: 1 }}>
-              <T size={11} color="#5b724b" lineHeight={17}>Estimated shipment margin</T>
+              <T size={11} color="#756e7c" lineHeight={17}>Estimated shipment margin</T>
               <T weight="semibold" size={21} tabular color={scenario.marginMinCad < 0 ? colors.danger : colors.ink} style={{ marginTop: 7, letterSpacing: -0.4 }}>{cad(scenario.marginMinCad)}</T>
             </View>
           </View>
-          <T size={10} color="#5b714d" lineHeight={16} style={{ marginTop: 15 }}>Margin = {cad(invoice.revenueCad)} expected sales − {cad(invoice.otherCostsCad)} other costs − payment outlay.</T>
+          <T size={10} color="#6f6678" lineHeight={16} style={{ marginTop: 15 }}>Margin = {cad(invoice.revenueCad)} expected sales − {cad(invoice.otherCostsCad)} other costs − payment outlay.</T>
         </View>
       </Disclosure>
 
@@ -191,13 +191,13 @@ export function CompareSheet({ deal }: { deal: Deal }) {
           <Leaf size={18} color={colors.greenText} strokeWidth={1.7} />
           <T size={12} color={colors.greenText} lineHeight={21} style={{ flex: 1 }}>
             {quote.id === DEMO_QUOTES[1].id
-              ? <><T weight="bold" size={12} color="#436235">{cad(bank.totalMaxCad - specialist.totalMaxCad)} less</T> than the sample bank route</>
-              : <>There’s a lower-cost sample route. <T weight="bold" size={12} color="#436235">Compare before you agree.</T></>}
+              ? <><T weight="bold" size={12} color="#51736c">{cad(bank.totalMaxCad - specialist.totalMaxCad)} less</T> than the sample bank route</>
+              : <>There’s a lower-cost sample route. <T weight="bold" size={12} color="#51736c">Compare before you agree.</T></>}
           </T>
         </View>
         <PrimaryButton label={busy ? 'Preparing…' : 'Review agreement'} icon={ArrowRight} onPress={() => { void reviewAgreement(); }} disabled={busy} fullWidth />
       </View>
-      <T size={11} color="#60744f" lineHeight={21} center style={{ marginTop: 14 }}>Estimates are synthetic. No money moves, and no exchange rate is locked.</T>
+      <T size={11} color="#766f7e" lineHeight={21} center style={{ marginTop: 14 }}>Estimates are synthetic. No money moves, and no exchange rate is locked.</T>
     </View>
   );
 }
@@ -205,24 +205,24 @@ export function CompareSheet({ deal }: { deal: Deal }) {
 const styles = StyleSheet.create({
   heading: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 },
   dataNote: { flexDirection: 'row', alignItems: 'center', gap: 7, paddingVertical: 8, marginTop: 8, marginBottom: 10, minHeight: 44 },
-  options: { gap: 11 },
-  option: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, borderWidth: 1, borderColor: '#d0dcc2', borderRadius: 11, paddingVertical: 15, paddingHorizontal: 12 },
+  options: { gap: 10 },
+  option: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, borderWidth: 1, borderColor: '#e6ddea', borderRadius: 15, paddingVertical: 15, paddingHorizontal: 12, backgroundColor: '#fffefa' },
   optionSelected: { borderColor: colors.selectedBorder, backgroundColor: colors.greenSoft },
-  radio: { height: 16, width: 16, borderRadius: 8, borderWidth: 1, borderColor: '#99ad85', alignItems: 'center', justifyContent: 'center', marginTop: 3 },
-  radioDot: { height: 8, width: 8, borderRadius: 4, backgroundColor: '#52733d' },
+  radio: { height: 16, width: 16, borderRadius: 8, borderWidth: 1, borderColor: '#a795ba', alignItems: 'center', justifyContent: 'center', marginTop: 3 },
+  radioDot: { height: 8, width: 8, borderRadius: 4, backgroundColor: '#8f65db' },
   optionTitle: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
-  tag: { backgroundColor: colors.tint, borderRadius: 4, paddingVertical: 3, paddingHorizontal: 5 },
-  usdcContext: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, backgroundColor: '#eef1e7', borderRadius: 10, paddingVertical: 15, paddingHorizontal: 13, marginTop: 16 },
+  tag: { backgroundColor: colors.tint, borderRadius: 999, paddingVertical: 3, paddingHorizontal: 7 },
+  usdcContext: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, backgroundColor: '#f0f8f6', borderRadius: 15, paddingVertical: 15, paddingHorizontal: 13, marginTop: 16 },
   usdcLearn: { flexDirection: 'row', alignItems: 'center', gap: 9, paddingVertical: 13, minHeight: 44 },
-  callout: { flexDirection: 'row', gap: 10, alignItems: 'flex-start', paddingVertical: 15, paddingHorizontal: 13, backgroundColor: colors.warning, borderRadius: 9, marginTop: 13 },
+  callout: { flexDirection: 'row', gap: 10, alignItems: 'flex-start', paddingVertical: 15, paddingHorizontal: 13, backgroundColor: colors.warning, borderRadius: 14, marginTop: 13 },
   calloutResolved: { backgroundColor: colors.resolvedBg },
   feeChoice: { paddingVertical: 23, gap: 13 },
   breakdown: { borderTopWidth: 1, borderBottomWidth: 1, borderColor: colors.line },
   row: { flexDirection: 'row', justifyContent: 'space-between', gap: 16 },
-  totalRow: { borderTopWidth: 1, borderTopColor: '#cad7bb', borderStyle: 'dashed', paddingTop: 13 },
-  stress: { paddingVertical: 16, paddingHorizontal: 12, backgroundColor: colors.stressBg, borderRadius: 9, marginBottom: 17 },
+  totalRow: { borderTopWidth: 1, borderTopColor: '#ddd3e1', borderStyle: 'dashed', paddingTop: 13 },
+  stress: { paddingVertical: 16, paddingHorizontal: 12, backgroundColor: colors.stressBg, borderRadius: 14, marginBottom: 17 },
   sliderLabel: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 16, marginTop: 18 },
-  scenario: { flexDirection: 'row', gap: 14, borderTopWidth: 1, borderTopColor: '#d1ddc2', paddingTop: 17, marginTop: 17 },
+  scenario: { flexDirection: 'row', gap: 14, borderTopWidth: 1, borderTopColor: '#ddd3e1', paddingTop: 17, marginTop: 17 },
   footer: { gap: 17, paddingTop: 16, borderTopWidth: 1, borderTopColor: colors.line },
   savings: { flexDirection: 'row', gap: 9, alignItems: 'center' },
 });

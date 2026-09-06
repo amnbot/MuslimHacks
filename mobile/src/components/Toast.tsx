@@ -26,7 +26,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: 10,
     backgroundColor: colors.toastBg,
-    shadowColor: '#183e38',
+    shadowColor: '#271f40',
     shadowOpacity: 0.15,
     shadowRadius: 14,
     shadowOffset: { width: 0, height: 8 },

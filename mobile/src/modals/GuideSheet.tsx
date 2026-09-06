@@ -15,20 +15,20 @@ const steps = [
 export function GuideSheet({ onClose }: { onClose: () => void }) {
   return (
     <Sheet title="One deal. A 90-second story." onClose={onClose}>
-      <T size={14} color="#5c7450" lineHeight={26} style={{ marginBottom: 22 }}>SANAD helps trading partners agree on the real cost of a cross-border invoice before anyone sends money.</T>
+      <T size={14} color="#6f6678" lineHeight={26} style={{ marginBottom: 22 }}>SANAD helps trading partners agree on the real cost of a cross-border invoice before anyone sends money.</T>
       <View style={{ gap: 23 }}>
         {steps.map((step, index) => (
           <View key={step.title} style={styles.step}>
-            <View style={styles.number}><T size={12} lineHeight={16} color="#4b6b36">{index + 1}</T></View>
+            <View style={styles.number}><T size={12} lineHeight={16} color="#6750a8">{index + 1}</T></View>
             <View style={{ flex: 1 }}>
               <T weight="bold" size={14} lineHeight={21}>{step.title}</T>
-              <T size={13} color="#5f7750" lineHeight={24} style={{ marginTop: 6 }}>{step.body}</T>
+              <T size={13} color="#6f6678" lineHeight={24} style={{ marginTop: 6 }}>{step.body}</T>
             </View>
           </View>
         ))}
       </View>
       <View style={styles.note}>
-        <T size={12} color="#577346" lineHeight={22}>The people, conversation and quotes are fictional. The cost calculations, signatures, verification and record export work on your device.</T>
+        <T size={12} color="#6750a8" lineHeight={22}>The people, conversation and quotes are fictional. The cost calculations, signatures, verification and record export work on your device.</T>
       </View>
       <PrimaryButton label="Explore the sample deal" icon={ArrowRight} onPress={onClose} fullWidth />
     </Sheet>
@@ -36,7 +36,7 @@ export function GuideSheet({ onClose }: { onClose: () => void }) {
 }
 
 export const sheetStyles = StyleSheet.create({
-  note: { backgroundColor: '#eff4e5', paddingVertical: 16, paddingHorizontal: 13, borderRadius: 8, marginVertical: 23 },
+  note: { backgroundColor: '#f3eef8', paddingVertical: 16, paddingHorizontal: 13, borderRadius: 8, marginVertical: 23 },
   h3: { marginTop: 25, marginBottom: 11 },
   copy: { marginTop: 12 },
   smallCopy: { marginTop: 20 },
@@ -44,8 +44,8 @@ export const sheetStyles = StyleSheet.create({
 
 const styles = StyleSheet.create({
   step: { flexDirection: 'row', gap: 12 },
-  number: { height: 29, width: 29, borderRadius: 15, backgroundColor: '#e1eccf', alignItems: 'center', justifyContent: 'center' },
+  number: { height: 29, width: 29, borderRadius: 15, backgroundColor: '#eee7fb', alignItems: 'center', justifyContent: 'center' },
   note: sheetStyles.note,
 });
 
-export const sheetColors = { intro: '#5c7450', copy: '#5f7752', small: '#617b50', canvas: colors.canvas };
+export const sheetColors = { intro: '#6f6678', copy: '#6f6678', small: '#7a7282', canvas: colors.canvas };

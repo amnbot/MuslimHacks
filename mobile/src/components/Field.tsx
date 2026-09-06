@@ -9,7 +9,7 @@ export function Field({ label, style, editable = true, ...rest }: TextInputProps
       <TextInput
         accessibilityLabel={label}
         editable={editable}
-        placeholderTextColor="#6a7c5c"
+        placeholderTextColor="#817a86"
         {...rest}
         style={[styles.input, !editable && styles.disabled]}
       />
@@ -24,7 +24,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.inputBg,
     borderWidth: 1,
     borderColor: colors.inputBorder,
-    borderRadius: 7,
+    borderRadius: 13,
     paddingHorizontal: 10,
     paddingVertical: 12,
     fontFamily: fonts.sans,

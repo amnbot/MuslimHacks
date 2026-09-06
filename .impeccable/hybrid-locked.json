@@ -1,0 +1,18 @@
+{
+  "title": "Direction locked",
+  "question": "Daylight-led conversation is approved. The Finance screen will use the same Mashrabiya daylight and parametric counterseal system without changing SANAD’s workflow.",
+  "options": [
+    {
+      "id": "hybrid-a-confirmed",
+      "label": "Daylight-led conversation",
+      "kicker": "LOCKED",
+      "lineage": "Mashrabiya daylight with a functional Arabic counterseal",
+      "thesis": "The invoice is the luminous hinge inside the conversation.",
+      "palette": ["#FCFBF8", "#E8D8FF", "#BCEDE7", "#2B2540", "#FF8FCC"],
+      "materials": ["diffused geometric daylight", "porcelain surfaces", "parametric counterseal"],
+      "viewport": "Chat leads; Finance inherits the same continuous folio and state grammar.",
+      "risk": "Generated factual artifacts will be corrected against the existing product data.",
+      "comp": ".impeccable/mocks/hybrid-a.webp"
+    }
+  ]
+}

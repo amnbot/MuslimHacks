@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { BackHandler, Pressable, StyleSheet, View } from 'react-native';
+import { BackHandler, Image, Pressable, StyleSheet, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 // Per-weight imports keep the unused weights out of the bundle.
@@ -29,10 +29,10 @@ function NavButton({ label, icon: Icon, active, onPress, badge = false }: { labe
   return (
     <Pressable accessibilityRole="tab" accessibilityLabel={label} accessibilityState={{ selected: active }} onPress={onPress} style={[styles.navButton, active && styles.navActive]}>
       <View>
-        <Icon size={22} color={active ? colors.chipText : '#68765e'} strokeWidth={1.7} />
+        <Icon size={22} color={active ? colors.chipText : '#777080'} strokeWidth={1.7} />
         {badge && <View style={styles.navDot} />}
       </View>
-      <T weight={active ? 'bold' : 'regular'} size={12} lineHeight={16} color={active ? colors.chipText : '#68765e'}>{label}</T>
+      <T weight={active ? 'bold' : 'regular'} size={12} lineHeight={16} color={active ? colors.chipText : '#777080'}>{label}</T>
     </Pressable>
   );
 }
@@ -59,15 +59,16 @@ function Root() {
 
   return (
     <View style={[styles.app, { paddingTop: insets.top }]}>
+      <Image source={require('./assets/mashrabiya-daylight.png')} resizeMode="cover" style={styles.daylight} accessibilityIgnoresInvertColors />
       <StatusBar style="dark" />
       <View style={styles.topbar}>
         <View style={styles.wordmark}>
-          <T weight="bold" size={26} lineHeight={32} style={{ letterSpacing: -1 }}>sanad</T>
-          <T serif size={22} lineHeight={30} color="#738063">سند</T>
+          <T serif weight="medium" size={22} lineHeight={32} color="#241d3e" style={{ letterSpacing: 1.2 }}>SANAD</T>
+          <T serif size={25} lineHeight={32} color="#241d3e">سند</T>
         </View>
         <View style={styles.pill}>
           <View style={styles.dot} />
-          <T weight="medium" size={10} lineHeight={14} color="#58684d">Local prototype</T>
+          <T weight="medium" size={10} lineHeight={14} color="#6b607a">Local prototype</T>
         </View>
         <View style={{ flexDirection: 'row', marginLeft: 'auto' }}>
           <IconButton icon={CircleQuestionMark} label="Demo guide" onPress={() => setModal('guide')} />
@@ -105,7 +106,8 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
-  app: { flex: 1, backgroundColor: colors.canvas },
+  app: { flex: 1, backgroundColor: colors.canvas, overflow: 'hidden' },
+  daylight: { position: 'absolute', top: 0, right: 0, width: '100%', height: 430, opacity: 0.66 },
   topbar: {
     height: TOPBAR_HEIGHT,
     flexDirection: 'row',
@@ -113,13 +115,13 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingLeft: 16,
     paddingRight: 8,
-    backgroundColor: colors.topbar,
+    backgroundColor: 'rgba(253,251,248,0.88)',
     borderBottomWidth: 1,
     borderBottomColor: colors.line,
   },
   wordmark: { flexDirection: 'row', alignItems: 'center', gap: 9 },
-  pill: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingVertical: 5, paddingHorizontal: 7, backgroundColor: '#eaf0e0', borderRadius: 5 },
-  dot: { width: 5, height: 5, borderRadius: 3, backgroundColor: '#718c56' },
+  pill: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingVertical: 6, paddingHorizontal: 9, backgroundColor: '#f5f0fa', borderRadius: 999, borderWidth: 1, borderColor: '#e8dff0' },
+  dot: { width: 5, height: 5, borderRadius: 3, backgroundColor: '#20b9a0' },
   nav: {
     flexDirection: 'row',
     gap: 8,
@@ -127,9 +129,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     borderTopWidth: 1,
     borderTopColor: colors.line,
-    backgroundColor: colors.navBg,
+    backgroundColor: 'rgba(253,251,248,0.96)',
   },
-  navButton: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 4, borderRadius: 9, minHeight: 58 },
+  navButton: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 4, borderRadius: 14, minHeight: 58 },
   navActive: { backgroundColor: colors.chip },
   navDot: { position: 'absolute', right: -5, top: -1, width: 7, height: 7, borderRadius: 4, backgroundColor: colors.accent, borderWidth: 1, borderColor: colors.navBg },
 });

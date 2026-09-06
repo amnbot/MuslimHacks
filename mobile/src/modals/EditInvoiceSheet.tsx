@@ -67,7 +67,7 @@ export function EditInvoiceSheet({ deal, onClose }: { deal: Deal; onClose: () =>
         )}
         {frozen ? (
           <View style={sheetStyles.note}>
-            <T size={12} color="#577346" lineHeight={22}>This invoice is in a frozen agreement. Choose “Revise terms” in the agreement to start a new draft.</T>
+            <T size={12} color="#6750a8" lineHeight={22}>This invoice is in a frozen agreement. Choose “Revise terms” in the agreement to start a new draft.</T>
           </View>
         ) : (
           <PrimaryButton label="Update invoice" icon={ArrowRight} onPress={submit} fullWidth />
@@ -79,5 +79,5 @@ export function EditInvoiceSheet({ deal, onClose }: { deal: Deal; onClose: () =>
 
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', gap: 12 },
-  total: { flexDirection: 'row', justifyContent: 'space-between', gap: 10, backgroundColor: '#eaf2dd', borderRadius: 7, padding: 14 },
+  total: { flexDirection: 'row', justifyContent: 'space-between', gap: 10, backgroundColor: '#eef8f5', borderRadius: 7, padding: 14 },
 });

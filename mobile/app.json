@@ -7,7 +7,7 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "backgroundColor": "#f5f5ef",
+    "backgroundColor": "#fdfcf9",
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.sanad.demo"
@@ -16,7 +16,7 @@
       "package": "com.sanad.demo",
       "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
-        "backgroundColor": "#f5f5ef",
+        "backgroundColor": "#241d3e",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"

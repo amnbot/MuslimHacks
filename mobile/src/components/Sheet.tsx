@@ -45,7 +45,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.line,
   },
-  title: { flex: 1, letterSpacing: -0.4 },
+  title: { flex: 1, letterSpacing: -0.4, color: '#2c2446' },
   close: { marginTop: -6 },
-  content: { padding: 20, paddingBottom: 40 },
+  content: { padding: 22, paddingBottom: 40 },
 });
