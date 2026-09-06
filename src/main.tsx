@@ -7,6 +7,7 @@ import '@fontsource/manrope/latin-700.css';
 import '@fontsource/lora/latin-400.css';
 import '@fontsource/lora/latin-500.css';
 import './styles.css';
+import './conversation.css';
 import App from './App';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(<React.StrictMode><App /></React.StrictMode>);

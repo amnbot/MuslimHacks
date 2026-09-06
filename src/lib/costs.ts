@@ -1,3 +1,13 @@
+/**
+ * Naming note: the arithmetic here is generic rate maths between two currencies.
+ * The historical field names say Cad and Eur, and are kept so the existing tests and
+ * signed agreement snapshots stay byte-compatible. Read them as roles, not currencies:
+ *
+ *   ...Cad  →  the BUYER's currency (what leaves the buyer's account)
+ *   ...Eur  →  the SELLER's currency (what the seller is invoiced in and receives)
+ *
+ * A Corridor carries the ISO codes used to label those numbers in the interface.
+ */
 export type Invoice = {
   id: string;
   goods: string;
@@ -90,6 +100,38 @@ export const USDC_QUOTE: Quote = {
   asOf: '2026-09-05',
 };
 
+/**
+ * Settling in USDC and holding it. The supplier keeps the stablecoin rather than
+ * cashing out to EUR, so the 1% cash-out spread and the intermediary-bank deduction
+ * both fall away; only the buyer's funding spread and the on-chain cost remain.
+ *
+ * This is the route the app actually executes on devnet. Its advantage is real but
+ * conditional: it holds only while the supplier is willing to be paid in USDC and
+ * does not immediately convert. Converting later reintroduces the cash-out spread.
+ */
+export const USDC_DIRECT_QUOTE: Quote = {
+  id: 'usdc-direct',
+  name: 'USDC direct',
+  description: 'CAD → USDC, supplier holds USDC · no cash-out leg',
+  referenceRate: USDC_ASSUMPTIONS.cadPerUsd * USDC_ASSUMPTIONS.usdPerEur,
+  rateCadPerEur: USDC_ASSUMPTIONS.cadPerUsd * USDC_ASSUMPTIONS.usdPerEur
+    * (1 + USDC_ASSUMPTIONS.fundingSpreadPercent / 100),
+  transferFeeCad: cents(USDC_ASSUMPTIONS.fundingFeeCad
+    + cents(USDC_ASSUMPTIONS.networkFeeUsdc * USDC_ASSUMPTIONS.cadPerUsd)),
+  // An on-chain transfer has no correspondent bank in the middle to deduct from it.
+  downstreamFeeEur: { min: 0, max: 0 },
+  delivery: 'On-chain settlement, typically seconds',
+  source: 'Synthetic demo assumptions; not a live quote or provider offer. '
+    + `1 USDC = 1 USD; CAD per USD = ${USDC_ASSUMPTIONS.cadPerUsd}; `
+    + `USD per EUR = ${USDC_ASSUMPTIONS.usdPerEur} (1.5 / 1.35); `
+    + `funding spread = ${USDC_ASSUMPTIONS.fundingSpreadPercent}%; no cash-out spread, because the supplier is paid in USDC and holds it; `
+    + `funding fee = CAD ${USDC_ASSUMPTIONS.fundingFeeCad}; `
+    + `network fee = ${USDC_ASSUMPTIONS.networkFeeUsdc} USDC, frozen at CAD ${cents(USDC_ASSUMPTIONS.networkFeeUsdc * USDC_ASSUMPTIONS.cadPerUsd)}; `
+    + 'downstream fee = 0, as no intermediary bank stands between the wallets. '
+    + 'Excludes any later conversion of USDC into local currency, and the refundable SOL deposit for a new token account.',
+  asOf: '2026-09-05',
+};
+
 // These names, rates, fees, and delivery estimates are invented demo inputs.
 // No option represents a real company, a market quote, or availability.
 export const DEMO_QUOTES: Quote[] = [
@@ -118,6 +160,7 @@ export const DEMO_QUOTES: Quote[] = [
     asOf: '2026-09-05',
   },
   USDC_QUOTE,
+  USDC_DIRECT_QUOTE,
 ];
 
 const MAX_INVOICE_EUR = 100_000_000;
@@ -264,6 +307,157 @@ export function calculateUsdcBreakdown(invoice: Invoice, fxMovePercent = 0) {
     fundingFeeCad: cents(costs.transferFeeCad - networkFeeCad),
     totalConversionMarkupCad: costs.fxMarkupCad,
     intermediateUsdc,
+  };
+}
+
+/** A buyer-country to seller-country lane, with the routes quoted for it. */
+export type Corridor = {
+  id: string;
+  buyerCountry: string;
+  sellerCountry: string;
+  /** ISO code for the ...Cad fields. */
+  buyerCurrency: string;
+  /** ISO code for the ...Eur fields. */
+  sellerCurrency: string;
+  quotes: Quote[];
+};
+
+export const CANADA_TUNISIA: Corridor = {
+  id: 'ca-tn',
+  buyerCountry: 'Canada',
+  sellerCountry: 'Tunisia',
+  buyerCurrency: 'CAD',
+  sellerCurrency: 'EUR',
+  quotes: DEMO_QUOTES,
+};
+
+// Same synthetic method as the Canadian lane, re-quoted around a 0.85 GBP/EUR
+// reference. Invented inputs; no option represents a real company or market quote.
+export const UK_TUNISIA: Corridor = {
+  id: 'gb-tn',
+  buyerCountry: 'United Kingdom',
+  sellerCountry: 'Tunisia',
+  buyerCurrency: 'GBP',
+  sellerCurrency: 'EUR',
+  quotes: [
+    {
+      id: 'bank-wire',
+      name: 'Bank wire',
+      description: 'Synthetic bank-style quote · 2.60% FX markup',
+      rateCadPerEur: 0.8721,
+      referenceRate: 0.85,
+      transferFeeCad: 25,
+      downstreamFeeEur: { min: 15, max: 35 },
+      delivery: '2–4 business days · demo assumption',
+      source: 'Synthetic demo assumptions; not a live quote or provider offer. Reference 0.85 GBP per EUR.',
+      asOf: '2026-09-05',
+    },
+    {
+      id: 'specialist-transfer',
+      name: 'Specialist transfer',
+      description: 'Synthetic specialist-style quote · 0.55% FX markup',
+      rateCadPerEur: 0.8546750,
+      referenceRate: 0.85,
+      transferFeeCad: 6,
+      downstreamFeeEur: { min: 5, max: 15 },
+      delivery: '1–2 business days · demo assumption',
+      source: 'Synthetic demo assumptions; not a live quote or provider offer. Reference 0.85 GBP per EUR.',
+      asOf: '2026-09-05',
+    },
+    {
+      id: 'usdc-direct',
+      name: 'USDC direct',
+      description: 'GBP → USDC, supplier holds USDC · no cash-out leg',
+      rateCadPerEur: 0.8551,
+      referenceRate: 0.85,
+      transferFeeCad: 3.25,
+      downstreamFeeEur: { min: 0, max: 0 },
+      delivery: 'On-chain settlement, typically seconds',
+      source: 'Synthetic demo assumptions; not a live quote or provider offer. Reference 0.85 GBP per EUR; '
+        + '0.6% funding spread; no cash-out spread, because the supplier is paid in USDC and holds it; '
+        + 'no intermediary bank deduction. Excludes any later conversion into local currency.',
+      asOf: '2026-09-05',
+    },
+  ],
+};
+
+export const CORRIDORS: Corridor[] = [CANADA_TUNISIA, UK_TUNISIA];
+
+export type RouteOption = {
+  quote: Quote;
+  bearer: FeeBearer;
+  costs: CostResult;
+  /**
+   * Everything the two businesses lose to intermediaries, in the buyer's currency:
+   * what the buyer pays out, less what the supplier can rely on receiving, valued at
+   * the mid-market reference rate. Independent of who was made to bear the fees, so
+   * it is the only figure that cannot be improved by pushing cost onto the other side.
+   */
+  frictionCad: number;
+};
+export type Recommendation = {
+  options: RouteOption[];
+  /** Least total cost to the two businesses together. This is the arrangement to propose. */
+  lowestTotalCost: RouteOption;
+  /** Lowest worst-case outlay for the buyer, breaking ties toward the supplier's receipt. */
+  cheapestForBuyer: RouteOption;
+  /** Largest guaranteed receipt for the supplier, breaking ties toward the buyer's outlay. */
+  bestForSupplier: RouteOption;
+  /** The bank-wire baseline these are measured against, when the corridor quotes one. */
+  baseline: RouteOption | null;
+  /** Friction avoided against that baseline, in the buyer's currency. */
+  savingCad: number;
+};
+
+/**
+ * Scores every route and fee-bearer combination the corridor allows, so the interface
+ * can show which arrangement actually costs least rather than asserting it.
+ *
+ * Comparisons use each side's worst case — the buyer's totalMaxCad and the supplier's
+ * recipientMinEur — because that is the figure each party can rely on. A route whose
+ * inputs are invalid for this invoice is skipped rather than guessed at.
+ */
+export function recommendRoute(invoice: Invoice, corridor: Corridor): Recommendation {
+  const options: RouteOption[] = [];
+  for (const quote of corridor.quotes) {
+    for (const bearer of ['buyer', 'supplier'] as const) {
+      try {
+        const costs = calculateCosts(invoice, quote, bearer);
+        options.push({
+          quote,
+          bearer,
+          costs,
+          frictionCad: cents(costs.totalMaxCad - costs.recipientMinEur * quote.referenceRate),
+        });
+      } catch {
+        // Downstream fees can exceed a very small invoice; that pairing is simply unavailable.
+      }
+    }
+  }
+  if (!options.length) throw new RangeError('No quoted route in this corridor can carry this invoice.');
+
+  const best = (isBetter: (candidate: RouteOption, incumbent: RouteOption) => boolean) =>
+    options.reduce((incumbent, candidate) => (isBetter(candidate, incumbent) ? candidate : incumbent));
+
+  const lowestTotalCost = best((candidate, incumbent) => candidate.frictionCad < incumbent.frictionCad);
+  // Ties are common once fees reach zero, so each view falls back to the other side's interest.
+  const cheapestForBuyer = best((candidate, incumbent) =>
+    candidate.costs.totalMaxCad !== incumbent.costs.totalMaxCad
+      ? candidate.costs.totalMaxCad < incumbent.costs.totalMaxCad
+      : candidate.costs.recipientMinEur > incumbent.costs.recipientMinEur);
+  const bestForSupplier = best((candidate, incumbent) =>
+    candidate.costs.recipientMinEur !== incumbent.costs.recipientMinEur
+      ? candidate.costs.recipientMinEur > incumbent.costs.recipientMinEur
+      : candidate.costs.totalMaxCad < incumbent.costs.totalMaxCad);
+  const baseline = options.find((option) => option.quote.id === 'bank-wire' && option.bearer === 'supplier') ?? null;
+
+  return {
+    options,
+    lowestTotalCost,
+    cheapestForBuyer,
+    bestForSupplier,
+    baseline,
+    savingCad: baseline ? cents(baseline.frictionCad - lowestTotalCost.frictionCad) : 0,
   };
 }
 

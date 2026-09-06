@@ -1,7 +1,36 @@
 import { canonicalize, hashCanonical } from './agreement';
+import { decodeBase58 } from './base58';
 
 export const SOLANA_USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
-export const PAYMENT_NETWORK_LABEL = 'USDC · Solana mainnet';
+/** Circle's Solana devnet USDC. Devnet tokens have no financial value. */
+export const SOLANA_DEVNET_USDC_MINT = '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU';
+
+export type SolanaCluster = 'solana-mainnet-beta' | 'solana-devnet';
+
+/**
+ * One native USDC mint per cluster. The pairing is enforced when an invoice is
+ * validated, so a devnet mint can never ride on an invoice that claims mainnet.
+ */
+export const CLUSTER_USDC_MINT: Record<SolanaCluster, string> = {
+  'solana-mainnet-beta': SOLANA_USDC_MINT,
+  'solana-devnet': SOLANA_DEVNET_USDC_MINT,
+};
+export const CLUSTER_LABEL: Record<SolanaCluster, string> = {
+  'solana-mainnet-beta': 'USDC · Solana mainnet',
+  'solana-devnet': 'USDC · Solana devnet',
+};
+export const CLUSTER_SHORT_LABEL: Record<SolanaCluster, string> = {
+  'solana-mainnet-beta': 'Solana mainnet',
+  'solana-devnet': 'Solana devnet',
+};
+export const DEFAULT_CLUSTER: SolanaCluster = 'solana-mainnet-beta';
+/** Retained for callers that predate multi-cluster support. */
+export const PAYMENT_NETWORK_LABEL = CLUSTER_LABEL[DEFAULT_CLUSTER];
+
+export function isSolanaCluster(value: unknown): value is SolanaCluster {
+  return value === 'solana-mainnet-beta' || value === 'solana-devnet';
+}
+export function networkLabel(network: SolanaCluster): string { return CLUSTER_LABEL[network]; }
 export const MAX_INVOICE_RECORD_BYTES = 131_072;
 const MICROS = 1_000_000;
 const encoder = new TextEncoder();
@@ -18,7 +47,7 @@ export type BusinessInvoice = {
   note: string;
   lines: InvoiceLine[];
   totalMicros: number;
-  payment: { currency: 'USDC'; network: 'solana-mainnet-beta'; mint: typeof SOLANA_USDC_MINT; recipientWallet: string };
+  payment: { currency: 'USDC'; network: SolanaCluster; mint: string; recipientWallet: string };
 };
 export type InvoiceInput = {
   id?: string;
@@ -29,6 +58,8 @@ export type InvoiceInput = {
   dueDate: string;
   note?: string;
   recipientWallet: string;
+  /** Defaults to mainnet so existing callers keep their current behaviour. */
+  network?: SolanaCluster;
   lines: InvoiceLine[];
 };
 /** Device-local signing key. The name is self-declared, not a verified business identity. */
@@ -124,23 +155,17 @@ export function totalUsdc(lines: InvoiceLine[]): number {
 
 /** Validates canonical base58 encoding of a 32-byte Solana public key. It does not prove wallet ownership. */
 export function isSolanaAddress(value: unknown): value is string {
-  if (typeof value !== 'string' || value.length < 32 || value.length > 44 || !/^[1-9A-HJ-NP-Za-km-z]+$/.test(value)) return false;
-  const alphabet = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
-  let decoded = 0n;
-  for (const character of value) decoded = decoded * 58n + BigInt(alphabet.indexOf(character));
-  let bytes = 0;
-  for (let remainder = decoded; remainder > 0n; remainder >>= 8n) bytes++;
-  let leadingZeros = 0;
-  while (value[leadingZeros] === '1') leadingZeros++;
-  // The zero key is the system program, not a business recipient.
-  return decoded !== 0n && bytes + leadingZeros === 32;
+  if (typeof value !== 'string' || value.length < 32 || value.length > 44) return false;
+  const decoded = decodeBase58(value);
+  // The all-zero key is the system program, not a business recipient.
+  return decoded !== null && decoded.length === 32 && decoded.some((byte) => byte !== 0);
 }
 
 /** Wallet input check: also prevents accidentally pasting the displayed USDC mint.
  * Account type, control of the address, and the recipient's token account still need wallet/RPC checks.
  */
 export function isValidSolanaAddress(value: unknown): value is string {
-  return isSolanaAddress(value) && value !== SOLANA_USDC_MINT;
+  return isSolanaAddress(value) && value !== SOLANA_USDC_MINT && value !== SOLANA_DEVNET_USDC_MINT;
 }
 
 /** Validates all portable fields, recalculates totals, and returns a detached copy. */
@@ -153,8 +178,8 @@ export function validateInvoice(value: unknown): BusinessInvoice {
   }
   const payment = value.payment;
   if (!record(payment) || !keys(payment, ['currency', 'network', 'mint', 'recipientWallet'])
-    || payment.currency !== 'USDC' || payment.network !== 'solana-mainnet-beta' || payment.mint !== SOLANA_USDC_MINT
-    || !isValidSolanaAddress(payment.recipientWallet)) throw new TypeError('Payment must use native USDC on Solana mainnet and a recipient wallet address, not the USDC mint.');
+    || payment.currency !== 'USDC' || !isSolanaCluster(payment.network) || payment.mint !== CLUSTER_USDC_MINT[payment.network]
+    || !isValidSolanaAddress(payment.recipientWallet)) throw new TypeError('Payment must use the native USDC mint for its stated Solana network, and a recipient wallet address, not the USDC mint.');
   if (!positiveMicros(value.totalMicros) || totalUsdc(value.lines as InvoiceLine[]) !== value.totalMicros) {
     throw new TypeError('The invoice total does not match its line items.');
   }
@@ -162,23 +187,24 @@ export function validateInvoice(value: unknown): BusinessInvoice {
 }
 
 export function createInvoice(input: InvoiceInput): BusinessInvoice {
+  const network = input.network ?? DEFAULT_CLUSTER;
   return validateInvoice({
     version: 1, id: input.id ?? crypto.randomUUID(), createdAt: input.createdAt ?? new Date().toISOString(),
     issuer: input.issuer, customer: input.customer, reference: input.reference, dueDate: input.dueDate,
     note: input.note ?? '', lines: input.lines, totalMicros: totalUsdc(input.lines),
-    payment: { currency: 'USDC', network: 'solana-mainnet-beta', mint: SOLANA_USDC_MINT, recipientWallet: input.recipientWallet },
+    payment: { currency: 'USDC', network, mint: CLUSTER_USDC_MINT[network], recipientWallet: input.recipientWallet },
   });
 }
 
 /** A real transfer request for a wallet. Opening it does not execute or confirm a payment.
- * Solana Pay transfer URIs have no cluster field; the signed record pins mainnet and the
- * UI must require the wallet's mainnet network before presenting this request.
+ * Solana Pay transfer URIs have no cluster field; the signed record pins the network and the
+ * UI must require the wallet to be on that same network before presenting this request.
  */
 export function buildSolanaPayUri(input: BusinessInvoice): string {
   const invoice = validateInvoice(input);
   const query = [
     ['amount', formatUsdc(invoice.totalMicros)], ['spl-token', invoice.payment.mint],
-    ['label', invoice.issuer], ['message', `Invoice ${invoice.reference} · Solana mainnet`],
+    ['label', invoice.issuer], ['message', `Invoice ${invoice.reference} · ${CLUSTER_SHORT_LABEL[invoice.payment.network]}`],
   ].map(([key, value]) => `${key}=${encodeURIComponent(value)}`).join('&');
   return `solana:${invoice.payment.recipientWallet}?${query}`;
 }

@@ -13,6 +13,8 @@
   "dependencies": {
     "@fontsource/manrope": "^5.2.0",
     "@fontsource/lora": "^5.2.0",
+    "@noble/curves": "^2.4.0",
+    "@noble/hashes": "^2.4.0",
     "lucide-react": "^0.468.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"

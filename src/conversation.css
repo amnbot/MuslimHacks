@@ -1,0 +1,146 @@
+/* Conversation-first surfaces: thread list, timeline, fee poll, route comparison, devnet wallet.
+   Loaded after styles.css so it can build on the same tokens and override where the
+   invoice-era rules assumed a different structure. */
+
+.avatar{display:grid;place-items:center;width:44px;height:44px;flex-shrink:0;border-radius:13px;background:#e8dcff;color:#3f2f68;font-size:13px;font-weight:700}
+
+.tile-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:26px}
+.tile{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:16px}
+.tile span{display:block;font-size:11px;color:var(--muted)}
+.tile strong{display:block;margin-top:5px;font-size:24px;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.tile small{display:block;margin-top:3px;font-size:11px}
+
+.thread-list{list-style:none;margin:0;padding:0;border-top:1px solid var(--line)}
+.thread-row{display:flex;align-items:center;gap:14px;width:100%;text-align:left;padding:18px 2px;border:0;border-bottom:1px solid var(--line);background:transparent}
+.thread-row:hover{background:#faf6fc}
+.thread-main{flex:1;min-width:0}
+.thread-top{display:flex;align-items:center;gap:9px}
+.thread-top strong{font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.thread-main>small{display:block;margin-top:3px;font-size:11px;color:var(--muted)}
+.thread-preview{display:block;margin-top:4px;font-size:13px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.thread-amount{display:block;margin-top:5px;font-size:14px;font-variant-numeric:tabular-nums}
+.status.stage-negotiating{background:#f6f2fa;color:#6d5780}
+.status.stage-invoiced{background:#f3eef8;color:#675083}
+.status.stage-agreed{background:#efe8ff;color:#3f2f68}
+.status.stage-paid{background:#eaf8f3;color:#337c72}
+
+.thread-view{display:flex;flex-direction:column;gap:14px}
+.thread-head{display:flex;align-items:center;gap:11px;padding:9px 8px;background:#fdfbf8e6;border:1px solid var(--line);border-radius:16px}
+.thread-head>span:nth-child(3){flex:1;min-width:0}
+.thread-head strong{display:block;font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.thread-head small{display:block;font-size:11px;color:var(--muted)}
+.timeline{display:flex;flex-direction:column;padding:6px 2px}
+.timeline-note{font-size:11px;color:var(--muted);text-align:center;margin:14px auto}
+.bubble-row{display:flex;margin-bottom:14px}
+.bubble-row.is-out{justify-content:flex-end}
+.bubble{max-width:min(90%,52ch);padding:12px 15px 8px;border-radius:15px;border-top-left-radius:3px;background:#f6f1fa;box-shadow:0 8px 16px #3828490d}
+.bubble-row.is-out .bubble{background:#eaf8f3;border-top-left-radius:15px;border-top-right-radius:3px}
+.bubble p{font-size:15px;line-height:1.65;color:var(--ink)}
+.bubble small{display:flex;align-items:center;justify-content:flex-end;gap:5px;margin-top:5px;font-size:10px}
+
+.thread-card{display:flex;align-items:center;gap:13px;width:100%;text-align:left;margin-bottom:14px;padding:15px;border:1px solid var(--line);border-radius:15px;background:var(--paper)}
+.thread-card:hover{background:#faf6fc}
+.thread-card.is-static{cursor:default}
+.thread-card.is-static:hover{background:var(--paper)}
+.thread-card>span:nth-child(2){flex:1;min-width:0}
+.thread-card strong{display:block;font-size:14px}
+.thread-card small{display:block;margin-top:3px;font-size:12px;color:var(--muted);line-height:1.6}
+.thread-card-icon{display:grid;place-items:center;width:42px;height:42px;flex-shrink:0;border-radius:12px;background:#f5f1fa;color:#6750a8}
+.thread-card .text-button{padding-left:0;min-height:32px}
+
+.poll{margin-bottom:14px;padding:16px;border:1px solid #9b78df;border-radius:15px;background:var(--paper)}
+.poll h3{display:flex;align-items:center;gap:9px;color:var(--ink)}
+.poll>p{margin-top:8px;font-size:12px}
+.poll-options{display:flex;flex-direction:column;gap:9px;margin:14px 0}
+.poll-option{display:flex;align-items:center;gap:11px;width:100%;text-align:left;padding:12px;border:1px solid var(--line);border-radius:12px;background:#fffefa}
+.poll-option.is-chosen{border-color:#9b78df;background:#f5f1fa}
+.poll-option>span:nth-child(2){flex:1}
+.poll-option strong{display:block;font-size:13px}
+.poll-option small{display:block;margin-top:2px;font-size:12px;font-variant-numeric:tabular-nums}
+.radio{width:16px;height:16px;flex-shrink:0;border:1px solid #a795ba;border-radius:50%}
+.is-chosen>.radio{border-color:#8f65db;box-shadow:inset 0 0 0 4px #8f65db}
+.vote-chip{font-size:10px;background:#eaf8f3;color:#337c72;border-radius:999px;padding:4px 8px;white-space:nowrap}
+.poll-result{display:flex;align-items:center;gap:8px;border-radius:11px;padding:11px;font-size:12px;line-height:1.6}
+.poll-result.is-agreed{background:#eaf8f3;color:#2f746b}
+.poll-result.is-pending{background:#fff1ea;color:#8b4b46}
+
+.thread-hinge{display:flex;flex-direction:column;gap:11px;padding:14px;border:1px solid #d9ccef;border-radius:16px;background:#fdfbf8f5;box-shadow:0 14px 24px #35234217}
+.hinge-row{display:flex;align-items:center;justify-content:space-between;gap:16px}
+.hinge-row small{display:block;font-size:11px;color:var(--muted)}
+.hinge-row strong{display:block;margin:3px 0;font-size:25px;font-variant-numeric:tabular-nums;letter-spacing:-.03em}
+.hinge-nudge{display:flex;align-items:center;gap:8px;font-size:11px;color:#337c72;background:#eaf8f3;border-radius:11px;padding:10px}
+.thread-hinge>.primary{width:100%}
+
+.composer{display:flex;align-items:center;gap:9px;padding:6px;border:1px solid #e3dce6;border-radius:16px;background:#fffefa}
+.composer input{border:0;background:transparent;min-height:44px}
+.composer input:focus-visible{outline:none}
+.composer .primary{min-height:44px;width:44px;padding:0;flex-shrink:0}
+
+.best-route{display:flex;align-items:flex-start;gap:11px;padding:15px;border-radius:14px;background:#eaf8f3;color:#337c72;margin:16px 0}
+.best-route strong{display:block;font-size:14px}
+.best-route small{display:block;margin-top:5px;font-size:12px;line-height:1.7;color:#55756f}
+.route-options{display:flex;flex-direction:column;gap:11px}
+.route-option{display:flex;align-items:flex-start;gap:11px;width:100%;text-align:left;padding:15px 13px;border:1px solid #e6ddea;border-radius:15px;background:#fffefa}
+.route-option.is-chosen{border-color:#9b78df;background:#f5f1fa}
+.route-option>.radio{margin-top:3px}
+.route-body{flex:1;min-width:0}
+.route-title{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.route-title strong{font-size:14px}
+.route-pair{display:flex;gap:14px;margin:11px 0 8px}
+.route-pair>span{flex:1;min-width:0}
+.route-pair small{display:block;font-size:10px;color:var(--muted)}
+.route-pair strong{display:block;font-size:19px;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.route-body>small{display:block;font-size:11px;line-height:1.7}
+
+.callout{display:flex;align-items:flex-start;gap:11px;padding:15px 14px;border-radius:14px;background:#fff1ea;color:#8b4b46;margin:16px 0;max-width:none}
+.callout.is-resolved{background:#eaf8f3;color:#2f746b}
+.callout strong{display:block;font-size:14px;line-height:1.6}
+.callout small{display:block;margin-top:5px;font-size:12px;line-height:1.7;color:inherit}
+
+.fee-choice{display:flex;flex-direction:column;gap:9px;border:0;margin:22px 0;padding:0}
+.fee-choice legend{font-size:15px;font-weight:650;padding:0;margin-bottom:11px}
+.fee-choice label{flex-direction:row;align-items:center;gap:11px;padding:12px;border:1px solid var(--line);border-radius:12px;background:#fffefa;cursor:pointer}
+.fee-choice label.is-chosen{border-color:#9b78df;background:#f5f1fa}
+.fee-choice input{width:auto;min-height:0;margin:0}
+.fee-choice strong{display:block;font-size:13px}
+.fee-choice small{display:block;margin-top:2px}
+
+.stress-label{flex-direction:row;justify-content:space-between;align-items:center;margin:16px 0 8px}
+input[type=range]{min-height:44px;padding:0;border:0;background:transparent;accent-color:#8f65db}
+.scenario-row{display:flex;gap:16px;border-top:1px solid var(--line);padding-top:15px;margin-top:15px}
+.scenario-row>span{flex:1;min-width:0}
+.scenario-row small{display:block;font-size:11px;color:var(--muted)}
+.scenario-row strong{display:block;margin-top:6px;font-size:20px;font-variant-numeric:tabular-nums}
+
+.balance-card{display:flex;flex-direction:column;gap:11px;padding:20px;border:1px solid var(--line);border-radius:16px;background:var(--paper);margin:18px 0 30px}
+.balance-card>strong{font-family:Lora,Georgia,serif;font-size:40px;font-weight:400;font-variant-numeric:tabular-nums;line-height:1.2}
+.balance-card .row-network{display:flex;justify-content:space-between;gap:12px;color:var(--muted)}
+.balance-card .secondary{align-self:flex-start}
+
+.profile-options{display:flex;flex-direction:column;gap:11px;margin-bottom:18px}
+.profile-option{display:flex;align-items:center;gap:13px;width:100%;text-align:left;padding:15px;border:1px solid var(--line);border-radius:14px;background:#fffefa}
+.profile-option.is-chosen{border-color:#9b78df;background:#f5f1fa}
+.profile-option>span:nth-child(2){flex:1;min-width:0}
+.profile-option strong{display:block;font-size:16px}
+.profile-option small{display:block;margin-top:3px;font-size:12px}
+.profile-option code{display:block;margin-top:6px;font-size:10px;color:var(--muted)}
+
+.consent{flex-direction:row;align-items:center;gap:11px;margin:16px 0;font-weight:400;font-size:14px;color:var(--ink)}
+.consent input{width:auto;min-height:0}
+.signature-section>.secondary,.signature-section>.primary{width:100%;margin-top:11px}
+
+/* The invoice era used .payment-strip as a compact inline banner; here it is a section. */
+.payment-strip{display:block;background:transparent;padding:24px 0 0;margin-top:26px;border-top:1px solid var(--line);color:inherit;font-size:inherit;border-radius:0}
+.payment-strip h2{font-size:23px;margin-bottom:10px}
+.payment-strip>.primary{width:100%;margin-top:13px}
+.funding-section>.primary,.funding-section>.secondary{width:100%;margin-top:11px}
+.wallet-receive>code,.balance-card+section code{display:block;padding:12px;background:#f3eef7;border-radius:9px;color:#735989}
+
+@media(max-width:600px){
+  .tile-row{gap:10px}
+  .tile strong{font-size:20px}
+  .hinge-row strong{font-size:21px}
+  .route-pair{flex-direction:column;gap:8px}
+  .balance-card>strong{font-size:34px}
+  .thread-head{padding:8px 6px;gap:8px}
+}
