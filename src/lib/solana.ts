@@ -355,7 +355,6 @@ export function addressExplorerUrl(address: string): string {
   return `https://explorer.solana.com/address/${address}?cluster=devnet`;
 }
 
-/** Builds, signs, submits and confirms a USDC transfer. Rejects rather than reporting an unconfirmed payment. */
 /**
  * A transaction that was actually broadcast but did not confirm within the wait
  * window. It may still land later, so the signature is carried on the error and
@@ -370,12 +369,44 @@ export class PaymentTimeoutError extends Error {
   }
 }
 
+/** True when the account exists on chain. A missing account needs its rent funded to be created. */
+async function accountExists(address: string, endpoint: string): Promise<boolean> {
+  const result = await rpc<{ value: unknown }>('getAccountInfo', [address, { encoding: 'base64' }], endpoint);
+  return result?.value !== null && result?.value !== undefined;
+}
+
+const solAmount = (lamports: number) => (lamports / LAMPORTS_PER_SOL).toFixed(6);
+
+/**
+ * Builds, signs, submits and confirms a USDC transfer. Checks the payer holds enough
+ * SOL before ever building the transaction: a USDC faucet does not fund SOL, and
+ * without this check a zero-SOL wallet fails deep inside a devnet simulation with a
+ * cryptic System Program message instead of a clear, actionable one.
+ */
 export async function payUsdc(input: {
-  from: Keypair; to: string; amountMicros: number; endpoint?: string;
+  from: Keypair; to: string; amountMicros: number; endpoint?: string; mint?: string;
 }): Promise<{ signature: string; slot: number | null }> {
   const endpoint = input.endpoint ?? DEVNET_RPC;
-  const blockhash = await getLatestBlockhash(endpoint);
-  const message = buildUsdcTransfer({ from: input.from.address, to: input.to, amountMicros: input.amountMicros, blockhash });
+  const mint = input.mint ?? DEVNET_USDC_MINT;
+  const destinationAta = deriveAta(input.to, mint);
+
+  const [blockhash, payerLamports, destinationExists] = await Promise.all([
+    getLatestBlockhash(endpoint),
+    getSolBalance(input.from.address, endpoint),
+    accountExists(destinationAta, endpoint),
+  ]);
+
+  const requiredLamports = BASE_FEE_LAMPORTS + (destinationExists ? 0 : TOKEN_ACCOUNT_RENT_LAMPORTS);
+  if (payerLamports < requiredLamports) {
+    throw new Error(
+      `This wallet holds ${solAmount(payerLamports)} SOL, which is not enough to pay the Solana network fee`
+      + (destinationExists ? '' : ' and create the recipient’s token account')
+      + ` (about ${solAmount(requiredLamports)} SOL needed). A USDC faucet does not fund SOL. `
+      + 'Get devnet SOL from the faucet on the Wallet tab, then try again.',
+    );
+  }
+
+  const message = buildUsdcTransfer({ from: input.from.address, to: input.to, amountMicros: input.amountMicros, blockhash, mint });
   const { wire, signature } = signTransaction(message, input.from.seed);
   const submitted = await sendRawTransaction(wire, endpoint);
   const confirmation = await confirmSignature(submitted, { endpoint });

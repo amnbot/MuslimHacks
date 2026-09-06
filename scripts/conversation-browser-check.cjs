@@ -31,6 +31,9 @@ const WIDTHS = [320, 390, 768, 1000, 1440];
       getLatestBlockhash: { context: { slot: 1 }, value: { blockhash: '11111111111111111111111111111111', lastValidBlockHeight: 1 } },
       sendTransaction: FAKE_SIGNATURE,
       getSignatureStatuses: { context: { slot: 2 }, value: [{ slot: 2, confirmations: 1, err: null, confirmationStatus: 'confirmed' }] },
+      // The recipient's token account already exists (as it does on real devnet after
+      // a faucet funds it), so the payment preflight only requires the base network fee.
+      getAccountInfo: { context: { slot: 1 }, value: { data: ['', 'base64'], executable: false, lamports: 2039280, owner: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA', rentEpoch: 0, space: 165 } },
     };
     route.fulfill({
       status: 200, contentType: 'application/json',
