@@ -1,274 +1,145 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { ArrowLeft, ArrowLeftRight, ArrowRight, ArrowUpRight, Check, CheckCheck, ChevronDown, ChevronRight, CircleHelp, Coins, Download, ExternalLink, FileCheck2, FileText, Fingerprint, FlaskConical, Globe2, Leaf, LockKeyhole, MessageSquare, RotateCcw, Send, ShieldCheck, SlidersHorizontal, Users, X, AlertTriangle, Printer, Upload } from 'lucide-react';
-import { calculateCosts, calculateUsdcBreakdown, DEMO_INVOICE, DEMO_QUOTES, USDC_ASSUMPTIONS, money, validateInvoice, type FeeBearer, type Invoice } from './lib/costs';
-import { createAgreement, createSigner, exportAgreement, mergeAgreements, signAgreement, verifyAgreement, type Agreement, type PartyId, type Signer } from './lib/agreement';
+import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { ArrowDownToLine, ArrowLeft, ArrowRight, Building2, Check, ChevronRight, Copy, ExternalLink, FilePlus2, FileText, Fingerprint, LockKeyhole, Plus, ShieldCheck, Trash2, Upload, Wallet, X } from 'lucide-react';
+import { buildSolanaPayUri, createBusinessSigner, createInvoice, createInvoiceRecord, exportInvoiceRecord, formatUsdc, invoiceStatus, isValidSolanaAddress, parseInvoiceRecord, parseUsdc, pinInvoiceRecord, signInvoiceRecord, totalUsdc, PAYMENT_NETWORK_LABEL, SOLANA_USDC_MINT, type BusinessSigner, type InvoiceInput, type InvoiceRecord } from './lib/business';
+import { decryptRecord, encryptRecord, isEncryptedEnvelope } from './lib/envelope';
+import { FUNDING_PROVIDERS, NETWORK_FEE_NOTE } from './lib/funding';
 
-type ChatMessage = { id: string; from: PartyId; text: string; time: string };
-type Screen = 'chat' | 'finance';
-type ModalKind = 'guide' | 'sources' | 'verify' | 'edit' | 'reset' | 'revise' | 'usdc' | null;
-const names = { buyer: 'Bilal Mansouri', supplier: 'Amira Ben Youssef' };
-const initialMessages: ChatMessage[] = [
-  { id: 'seed-1', from: 'supplier', text: 'Salam Bilal! Your September harvest order is ready. Here is the invoice for the 480 bottles.', time: '10:24' },
-  { id: 'seed-2', from: 'buyer', text: 'Wa alaykum salam, Amira. Looks good. I’ll arrange the €6,000 payment before Friday.', time: '10:26' },
-  { id: 'seed-3', from: 'supplier', text: 'Perfect. Just one thing — we need the full €6,000 to arrive. Last time the bank deducted fees.', time: '10:27' },
-];
-const eur = (value: number) => money(value, 'EUR');
-const cad = (value: number) => money(value, 'CAD');
-const range = (low: number, high: number, currency = 'CAD') => low === high ? money(low, currency) : `${money(low, currency)} – ${money(high, currency)}`;
+type Profile = { business: string; wallet: string };
+type Page = 'invoices' | 'wallet' | 'create';
+type Overlay = 'import' | 'share' | 'security' | null;
+const STORAGE = 'sanad.business.v1';
+const status = (record: InvoiceRecord) => invoiceStatus(record) === 'acknowledged' ? 'Acknowledged' : 'Awaiting acknowledgement';
+const short = (value: string) => `${value.slice(0, 7)}…${value.slice(-6)}`;
 
-function Modal({ title, children, onClose, wide = false }: { title: string; children: ReactNode; onClose: () => void; wide?: boolean }) {
+function Counterseal({ complete = false }: { complete?: boolean }) {
+  return <svg className="counterseal" width="48" height="48" viewBox="0 0 48 48" fill="none" aria-hidden="true"><path d="M24 3 30 12 40 8 36 19 45 24 36 30 40 40 29 36 24 45 18 36 8 40 12 29 3 24 12 18 8 8 19 12Z" stroke="currentColor" strokeWidth="1.25" strokeDasharray={complete ? undefined : '14 3'} /><path d="m24 12 12 12-12 12L12 24Z" stroke="currentColor" strokeWidth="1.25"/><path d="M19 24h10M24 19v10" stroke="currentColor" strokeWidth="1.25"/></svg>;
+}
+function Modal({ title, children, onClose }: { title: string; children: ReactNode; onClose: () => void }) {
   const ref = useRef<HTMLDialogElement>(null);
+  const titleId = useId();
   useEffect(() => { ref.current?.showModal(); }, []);
-  return <dialog ref={ref} className={`dialog ${wide ? 'dialog-wide' : ''}`} onCancel={onClose} onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-    <div className="dialog-head"><h2>{title}</h2><button className="icon-button" aria-label="Close dialog" onClick={onClose}><X size={20} /></button></div>
-    <div className="dialog-content">{children}</div>
-  </dialog>;
+  return <dialog ref={ref} aria-labelledby={titleId} onCancel={onClose} onClick={e => { if (e.target === ref.current) onClose(); }}><div className="dialog-head"><h2 id={titleId}>{title}</h2><button className="icon-button" aria-label="Close dialog" onClick={onClose}><X size={21}/></button></div><div className="dialog-body">{children}</div></dialog>;
+}
+function download(contents: string, filename: string) {
+  const url = URL.createObjectURL(new Blob([contents], { type: 'application/json' }));
+  const anchor = document.createElement('a'); anchor.href = url; anchor.download = filename; anchor.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-function Counterseal({ state = 'open', size = 28 }: { state?: 'open' | 'aligned' | 'closed'; size?: number }) {
-  return <svg className={`counterseal counterseal-${state}`} width={size} height={size} viewBox="0 0 32 32" aria-hidden="true">
-    <path strokeDasharray={state === 'open' ? '6 4' : state === 'aligned' ? '14 2' : undefined} d="M16 2 20 8 27 5 24 12 30 16 24 20 27 27 20 24 16 30 12 24 5 27 8 20 2 16 8 12 5 5 12 8Z" />
-    <path strokeDasharray={state === 'open' ? '4 5' : state === 'aligned' ? '11 2' : undefined} d="M16 7 21 11 25 16 21 21 16 25 11 21 7 16 11 11ZM8 16h4l4-4 4 4h4M8 16h4l4 4 4-4h4" />
-    <path opacity={state === 'open' ? .45 : state === 'aligned' ? .75 : 1} d="m16 12 4 4-4 4-4-4Z" />
-  </svg>;
-}
-
-function App() {
-  const [screen, setScreen] = useState<Screen>(() => location.hash === '#finance' ? 'finance' : 'chat');
-  const [room] = useState(() => new URLSearchParams(location.search).get('room') || crypto.randomUUID());
-  const [role, setRole] = useState<PartyId>(() => new URLSearchParams(location.search).get('role') === 'supplier' ? 'supplier' : 'buyer');
-  const [invoice, setInvoice] = useState<Invoice>({ ...DEMO_INVOICE });
-  const [quoteId, setQuoteId] = useState(DEMO_QUOTES[0].id);
-  const [bearer, setBearer] = useState<FeeBearer>('supplier');
-  const [stress, setStress] = useState(0);
-  const [agreement, setAgreement] = useState<Agreement | null>(null);
-  const [messages, setMessages] = useState(initialMessages);
-  const [message, setMessage] = useState('');
-  const [modal, setModal] = useState<ModalKind>(null);
+export default function App() {
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [records, setRecords] = useState<InvoiceRecord[]>([]);
+  const [loaded, setLoaded] = useState(false);
+  const [page, setPage] = useState<Page>('invoices');
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [overlay, setOverlay] = useState<Overlay>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
-  const [consent, setConsent] = useState(false);
-  const [verifyResult, setVerifyResult] = useState<Awaited<ReturnType<typeof verifyAgreement>> | null>(null);
-  const [verifyText, setVerifyText] = useState('');
-  const [verifyLabel, setVerifyLabel] = useState('');
-  const [editInvoice, setEditInvoice] = useState<Invoice>({ ...DEMO_INVOICE });
-  const [editErrors, setEditErrors] = useState<string[]>([]);
-  const [deliveryWindow, setDeliveryWindow] = useState('21–25 September 2026');
-  const [termsNote, setTermsNote] = useState('Confirm the final provider quote before sending. Any charges beyond this estimate require a new conversation.');
-  const keys = useRef<Partial<Record<PartyId, Signer>>>({});
-  const generation = useRef(0);
-  const channel = useRef<BroadcastChannel | null>(null);
-  const latest = useRef({ agreement, messages });
-  latest.current = { agreement, messages };
-  const chatEnd = useRef<HTMLDivElement>(null);
-  const chatTimeline = useRef<HTMLDivElement>(null);
-  const chatScroll = useRef<number | null>(null);
-  const quote = agreement?.snapshot.quote || DEMO_QUOTES.find(q => q.id === quoteId) || DEMO_QUOTES[0];
-  const costs = agreement?.snapshot.costs || calculateCosts(invoice, quote, bearer);
-  const scenario = agreement ? costs : calculateCosts(invoice, quote, bearer, stress);
-  const bank = agreement ? costs : calculateCosts(invoice, DEMO_QUOTES[0], bearer);
-  const specialist = agreement ? costs : calculateCosts(invoice, DEMO_QUOTES[1], bearer);
-  const sealed = agreement?.signatures.length === 2;
-  const selectedSigned = agreement?.signatures.some(s => s.partyId === role);
-  const usdcBreakdown = calculateUsdcBreakdown(invoice);
-
-  function goTo(next: Screen) {
-    if (next === screen) return;
-    history.pushState(null, '', `#${next}`);
-    setScreen(next);
-  }
+  const [filter, setFilter] = useState('all');
+  const [importText, setImportText] = useState('');
+  const [importKey, setImportKey] = useState('');
+  const [sealed, setSealed] = useState<{ envelope: string; key: string } | null>(null);
+  const signer = useRef<BusinessSigner | null>(null);
+  const operation = useRef(false);
+  const selected = records.find(record => record.invoice.id === selectedId);
   useEffect(() => {
-    const onBack = () => setScreen(location.hash === '#finance' ? 'finance' : 'chat');
-    window.addEventListener('popstate', onBack);
-    return () => window.removeEventListener('popstate', onBack);
+    let active = true;
+    (async () => {
+      try {
+        const stored = localStorage.getItem(STORAGE);
+        if (stored) {
+          if (stored.length > 5_000_000) throw new Error('Saved workspace is too large. Restore your exported invoices in a fresh browser profile.');
+          const data = JSON.parse(stored);
+          if (!data.profile || typeof data.profile.business !== 'string' || !data.profile.business.trim() || typeof data.profile.wallet !== 'string' || !Array.isArray(data.records) || data.records.length > 500) throw new Error('Saved workspace could not be read.');
+          const parsed = await Promise.all(data.records.map((record: unknown) => parseInvoiceRecord(record)));
+          if (active) { setProfile(data.profile); setRecords(parsed); }
+        }
+      } catch (reason) { if (active) setError(reason instanceof Error ? reason.message : 'Could not open saved workspace.'); }
+      finally { if (active) setLoaded(true); }
+    })(); return () => { active = false; };
   }, []);
   useEffect(() => {
-    window.scrollTo(0, 0);
-    if (screen === 'chat' && chatTimeline.current) chatTimeline.current.scrollTop = chatScroll.current ?? chatTimeline.current.scrollHeight;
-  }, [screen]);
-
-  useEffect(() => { setConsent(false); }, [role, agreement?.hash]);
-  useEffect(() => { if (messages.length > initialMessages.length) chatEnd.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }, [messages.length]);
-  useEffect(() => {
-    if (!notice) return;
-    const timer = window.setTimeout(() => setNotice(''), 4500);
-    return () => window.clearTimeout(timer);
-  }, [notice]);
-  useEffect(() => {
-    if (!('BroadcastChannel' in window)) return;
-    const bus = new BroadcastChannel(`sanad-${room}`);
-    channel.current = bus;
-    let pending = Promise.resolve();
-    bus.onmessage = ({ data }) => {
-      if (data?.type === 'reset') { resetLocal(); return; }
-      if (data?.type === 'revise') { generation.current++; latest.current.agreement = null; setAgreement(null); setConsent(false); return; }
-      const started = generation.current;
-      pending = pending.then(async () => {
-      if (started !== generation.current) return;
-      if (data?.type === 'hello') bus.postMessage({ type: 'sync', ...latest.current });
-      if (data?.type === 'sync' || data?.type === 'agreement') {
-        if (data.agreement && (await verifyAgreement(data.agreement)).valid) {
-          if (started !== generation.current) return;
-          const incoming = data.agreement as Agreement; if (incoming.snapshot.invoice.amountEur < 35) return;
-          const current = latest.current.agreement;
-          if (!current || (current.snapshot.id === incoming.snapshot.id && current.hash === incoming.hash)) {
-            const next = current ? await mergeAgreements(current, incoming) : incoming;
-            if (started !== generation.current) return;
-            latest.current.agreement = next;
-            setAgreement(next);
-            setInvoice(next.snapshot.invoice);
-            setQuoteId(next.snapshot.quote.id);
-            setBearer(next.snapshot.feeBearer);
-            if (next.signatures.length > incoming.signatures.length) bus.postMessage({ type: 'agreement', agreement: next });
-          }
-        }
-        if (data.type === 'sync' && Array.isArray(data.messages)) setMessages(data.messages);
-      }
-      if (data?.type === 'message' && typeof data.message?.text === 'string' && ['buyer', 'supplier'].includes(data.message.from)) {
-        setMessages(current => current.some(m => m.id === data.message.id) ? current : [...current, data.message]);
-      }
-      }).catch(() => setError('A conflicting demo record was ignored. Keep the current record or start a new draft.'));
-    };
-    bus.postMessage({ type: 'hello' });
-    return () => { bus.close(); channel.current = null; };
-  }, [room]);
-
-  function resetLocal() {
-    generation.current++; latest.current.agreement = null;
-    setAgreement(null); setInvoice({ ...DEMO_INVOICE }); setQuoteId(DEMO_QUOTES[0].id); setBearer('supplier'); setStress(0); setMessages(initialMessages); setMessage(''); setError(''); setConsent(false); setVerifyResult(null); setVerifyText(''); setDeliveryWindow('21–25 September 2026'); setTermsNote('Confirm the final provider quote before sending. Any charges beyond this estimate require a new conversation.'); keys.current = {};
+    if (loaded && profile) try { const saved = JSON.stringify({ profile, records }); if (saved.length > 5_000_000) throw new Error('Storage limit'); localStorage.setItem(STORAGE, saved); }
+    catch { setError('This browser could not save your workspace. Export your invoices before closing.'); }
+  }, [loaded, profile, records]);
+  useEffect(() => { if (!notice) return; const timer = setTimeout(() => setNotice(''), 4500); return () => clearTimeout(timer); }, [notice]);
+  async function run(work: () => Promise<void>) {
+    if (operation.current) return;
+    operation.current = true; setError(''); setBusy(true);
+    try { await work(); } catch (reason) { setError(reason instanceof Error ? reason.message : 'Something went wrong. Please try again.'); }
+    finally { operation.current = false; setBusy(false); }
   }
-  function reset() { resetLocal(); channel.current?.postMessage({ type: 'reset' }); setModal(null); setRole('buyer'); setNotice('Sample deal restored. Ready for another walkthrough.'); }
-  function sendMessage(e: React.FormEvent) {
-    e.preventDefault(); if (!message.trim()) return;
-    const item = { id: crypto.randomUUID(), from: role, text: message.trim().slice(0, 1500), time: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) };
-    setMessages(current => [...current, item]); channel.current?.postMessage({ type: 'message', message: item }); setMessage('');
+  async function getSigner() {
+    if (!profile) throw new Error('Set up your business first.');
+    if (!signer.current) signer.current = await createBusinessSigner(profile.business);
+    return signer.current;
   }
-  async function reviewAgreement() {
-    const started = generation.current;
-    setBusy(true); setError('');
-    try {
-      const next = await createAgreement({ version: 1, id: `SND-${crypto.randomUUID().slice(0, 8).toUpperCase()}`, createdAt: new Date().toISOString(), invoice: { ...invoice }, quote: { ...quote }, feeBearer: bearer, costs, terms: { deliveryWindow, note: termsNote }, parties: names, disclosure: 'Synthetic demo invoice, parties, rates and fees. Cost ranges are assumptions, not guarantees. Signing does not lock a rate, move money, authenticate legal identity or establish legal enforceability.' });
-      if (started !== generation.current) return;
-      latest.current.agreement = next; setAgreement(next); setConsent(false); channel.current?.postMessage({ type: 'agreement', agreement: next });
-    } catch (e) { setError(e instanceof Error ? e.message : 'Could not prepare this agreement. Please try again.'); }
-    finally { setBusy(false); }
+  async function putRecord(record: InvoiceRecord) {
+    const existing = records.find(item => item.invoice.id === record.invoice.id);
+    const verified = await pinInvoiceRecord(existing, record);
+    if (!existing && records.length >= 500) throw new Error('This workspace holds up to 500 invoices. Export your records before starting another workspace.');
+    setRecords(current => [verified, ...current.filter(item => item.invoice.id !== verified.invoice.id)]);
+    setSelectedId(verified.invoice.id); setPage('invoices');
   }
-  async function sign() {
-    if (!agreement || !consent || busy) return;
-    const started = generation.current;
-    setBusy(true); setError('');
-    try {
-      const signer = keys.current[role] || await createSigner(role); keys.current[role] = signer;
-      const signed = await signAgreement(agreement, signer);
-      if (started !== generation.current || !latest.current.agreement) return;
-      const next = await mergeAgreements(latest.current.agreement, signed);
-      const result = await verifyAgreement(next);
-      if (!result.valid) throw new Error(result.message);
-      if (started !== generation.current) return;
-      latest.current.agreement = next; setAgreement(next); channel.current?.postMessage({ type: 'agreement', agreement: next }); setConsent(false);
-      setNotice(next.signatures.length === 2 ? 'Both signatures verified. Your agreement is sealed.' : `${names[role].split(' ')[0]} signed. Ready for the other party.`);
-    } catch (e) { setError(e instanceof Error ? e.message : 'Signature failed. Please try again.'); }
-    finally { setBusy(false); }
+  function copy(value: string, message = 'Copied') { void run(async () => { await navigator.clipboard.writeText(value); setNotice(message); }); }
+  function go(next: Page) { setPage(next); setSelectedId(null); setError(''); }
+  function openImport() { setImportText(''); setImportKey(''); setError(''); setOverlay('import'); }
+  async function importRecord() {
+    await run(async () => {
+      if (importText.length > 1_000_000) throw new Error('Choose an invoice file smaller than 1 MB.');
+      const plaintext = isEncryptedEnvelope(importText) ? await decryptRecord(importText, importKey.trim()) : importText;
+      const record = await parseInvoiceRecord(plaintext);
+      if (record.invoice.issuer !== profile?.business && record.invoice.customer !== profile?.business) throw new Error('This invoice is addressed to a different business. Check your business name with the sender.');
+      await putRecord(record); setOverlay(null); setNotice('Invoice imported and signatures verified.');
+    });
   }
-  async function download() {
-    if (!agreement) return;
-    const result = await verifyAgreement(agreement);
-    if (!result.valid || !result.complete) { setError('Both valid signatures are needed before exporting a sealed record.'); return; }
-    const blob = new Blob([exportAgreement(agreement)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob); const anchor = document.createElement('a'); anchor.href = url; anchor.download = `${agreement.snapshot.id}.sanad.json`; anchor.click(); window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-    setNotice('Record downloaded, including terms, public keys and both signatures.');
+  async function openShare() {
+    if (!selected) return;
+    await run(async () => { setSealed(await encryptRecord(exportInvoiceRecord(selected))); setSelectedId(selected.invoice.id); setPage('invoices'); setOverlay('share'); });
   }
-  async function checkRecord(value: unknown, label: string) {
-    setBusy(true); setVerifyLabel(label); setVerifyResult(null);
-    try { setVerifyResult(await verifyAgreement(value)); }
-    catch { setVerifyResult({ valid: false, hashMatches: false, signaturesValid: false, complete: false, message: 'This record could not be read. Upload a SANAD JSON export.' }); }
-    finally { setBusy(false); }
-  }
-  function openVerifier() { setVerifyResult(null); setVerifyText(''); setVerifyLabel(''); setModal('verify'); }
-  function openOtherTab() {
-    const url = new URL(location.href); url.searchParams.set('room', room); url.searchParams.set('role', role === 'buyer' ? 'supplier' : 'buyer');
-    url.hash = 'finance'; window.open(url.toString(), '_blank', 'noopener');
-  }
-  function saveInvoice(e: React.FormEvent) {
-    e.preventDefault(); const next = { ...editInvoice, amountEur: Math.round(editInvoice.quantity * editInvoice.unitPriceEur * 100) / 100 };
-    const issues = validateInvoice(next); setEditErrors(issues);
-    if (issues.length) return;
-    if (next.amountEur < Math.max(...DEMO_QUOTES.map(q => q.downstreamFeeEur.max))) {
-      setEditErrors(['Use an invoice of at least €35 for these sample fee bands.']); return;
-    }
-    setInvoice(next); setModal(null); setNotice('Invoice updated. All cost estimates have been recalculated.');
-  }
-  function revise() { generation.current++; latest.current.agreement = null; setAgreement(null); setConsent(false); setModal(null); channel.current?.postMessage({ type: 'revise' }); setNotice('New draft started. Both parties will need to sign the revised terms.'); }
-
-  return <div className={`app-shell screen-${screen}`}>
-    <aside className="desktop-nav" aria-label="Workspace navigation">
-      <div className="desktop-brand"><Counterseal state={sealed ? 'closed' : agreement ? 'aligned' : 'open'} size={40} /><span>SANAD <b lang="ar">سند</b></span></div>
-      <p>Trade, on the same page.</p>
-      <button aria-label="Chat" aria-current={screen === 'chat' ? 'page' : undefined} onClick={() => goTo('chat')}><MessageSquare size={21} />Chat</button>
-      <button aria-label="Finance" aria-current={screen === 'finance' ? 'page' : undefined} onClick={() => goTo('finance')}><ArrowLeftRight size={21} />Finance</button>
-      <div className="desktop-nav-bottom"><button onClick={openVerifier}><FileCheck2 size={19} />Verify a record</button><button onClick={() => setModal('sources')}><LockKeyhole size={19} />About the prototype</button><span>MuslimHacks · Challenge 02</span></div>
-    </aside>
-    <div className="main-shell">
-      <header className="topbar"><div className="wordmark">SANAD<span lang="ar">سند</span></div><span className="demo-pill"><span className="status-dot" />Local prototype</span><div className="topbar-actions"><button className="icon-button" aria-label="Demo guide" onClick={() => setModal('guide')}><CircleHelp size={21} /></button><button className="icon-button" aria-label="Reset demo" onClick={() => setModal('reset')}><RotateCcw size={19} /></button></div></header>
-      <main id="workspace">
-        {screen === 'chat' ? <section className="conversation" aria-label="Trade conversation">
-          <div className="conversation-head"><div className="avatar supplier-avatar">AB</div><div><h1>Amira Ben Youssef</h1><p>Sfax Olive Co. · Tunisia</p></div><button className="icon-button" aria-label="Conversation privacy" onClick={() => setModal('sources')}><LockKeyhole size={19} /></button></div>
-          <div className="chat-timeline" ref={chatTimeline} onScroll={e => { chatScroll.current = e.currentTarget.scrollTop; }}><div className="chat-date">5 September · Sample conversation</div>
-            {messages.map((item) => <div key={item.id} className={`message-group ${item.from === 'buyer' ? 'outgoing' : 'incoming'}`}><div className="message-bubble">{item.text}<span className="message-time">{item.time}{item.from === 'buyer' && <CheckCheck size={13} />}</span></div></div>)}
-              <div className="chat-insight"><div className="mini-brand"><Leaf size={14} /></div><p>{sealed ? 'Same terms. Both signatures. A record you can each keep.' : agreement ? 'Your cost decision is ready for both parties to review.' : 'A small detail worth agreeing on. Let’s check what actually arrives.'}</p></div>
-              {sealed && <button className="sealed-chat-card" onClick={() => goTo('finance')}><ShieldCheck size={20} /><span><strong>Agreement sealed</strong><small>Open your shared record</small></span><Download size={16} /></button>}<div ref={chatEnd} />
-            </div>
-            <div className="chat-invoice-hinge">
-              <button className="hinge-invoice" onClick={() => { setEditInvoice({ ...invoice }); setEditErrors([]); setModal('edit'); }} aria-label="View sample invoice"><span className="invoice-file-icon"><FileText size={23} /></span><span className="hinge-copy"><strong>Invoice {invoice.id}</strong><small>{invoice.quantity} bottles · Organic olive oil</small><b>{eur(invoice.amountEur)}</b></span><Counterseal state={sealed ? 'closed' : agreement ? 'aligned' : 'open'} size={58} /><ChevronRight size={18} /></button>
-              <button className="hinge-action" onClick={() => goTo('finance')} aria-label={sealed ? 'View signed agreement' : agreement ? 'Review shared agreement' : 'Review payment options'}><span className="bridge-icon"><Counterseal state={sealed ? 'closed' : agreement ? 'aligned' : 'open'} size={26} /></span><strong>{sealed ? 'View signed agreement' : agreement ? 'Review shared agreement' : 'Review payment options'}</strong><ArrowRight size={20} /></button>
-            </div>
-            <div className="chat-compose"><div className="role-control"><span>Demo role</span><div><button className={role === 'buyer' ? 'selected' : ''} onClick={() => setRole('buyer')}>Bilal · buyer</button><button className={role === 'supplier' ? 'selected' : ''} onClick={() => setRole('supplier')}>Amira · supplier</button></div></div><form onSubmit={sendMessage} className="message-input"><input aria-label={`Message as ${names[role]}`} placeholder={`Message as ${role === 'buyer' ? 'Bilal' : 'Amira'}…`} value={message} maxLength={1500} onChange={e => setMessage(e.target.value)} /><button type="submit" aria-label="Send message" disabled={!message.trim()}><Send size={17} /></button></form><span className="compose-footnote">Fictional participants · session only</span></div>
-          </section> : <div className="finance-screen">
-          <div className="finance-screen-head"><div><h1>Finance</h1><p>One invoice. Every cost in view.</p></div><button className="icon-button" aria-label="Verify an agreement" onClick={openVerifier}><FileCheck2 size={23} /></button></div>
-          <button className="linked-conversation" onClick={() => goTo('chat')}><span className="avatar supplier-avatar">AB</span><span><strong>September olive oil shipment</strong><small>Amira · Sfax, Tunisia</small></span><MessageSquare size={19} /><ChevronRight size={17} /></button>
-          <ol className="steps"><li className={!agreement ? 'current' : 'done'}><span><Counterseal state="open" size={21} /></span>Compare</li><li className={agreement && !sealed ? 'current' : sealed ? 'done' : ''}><span><Counterseal state="aligned" size={21} /></span>Agree</li><li className={sealed ? 'current' : ''}><span><Counterseal state="closed" size={21} /></span>Keep record</li></ol>
-          <section className="decision-sheet" aria-label={agreement ? 'Trade agreement' : 'Review payment costs'}>
-          {!agreement ? <>
-            <div className="sheet-heading"><div><h2>How should this invoice be paid?</h2><p>{eur(invoice.amountEur)} due · Compare buyer outlay in CAD.</p></div><button className="icon-button" aria-label="Edit invoice" title="Edit invoice" onClick={() => { setEditInvoice({ ...invoice }); setEditErrors([]); setModal('edit'); }}><SlidersHorizontal size={18} /></button></div>
-            <button className="data-note" onClick={() => setModal('sources')}><FlaskConical size={14} /><span>Illustrative rates & fees · see assumptions</span><ArrowUpRight size={14} /></button>
-            <div className="quote-options" role="radiogroup" aria-label="Payment route">
-              {DEMO_QUOTES.map((option, index) => { const result = calculateCosts(invoice, option, bearer); const active = quote.id === option.id;
-                const isUsdc = option.id === 'usdc-route';
-                return <button key={option.id} role="radio" aria-checked={active} className={`quote-option ${active ? 'selected' : ''}`} onClick={() => setQuoteId(option.id)}><span className="radio-mark">{active && <span />}</span><span className="quote-main"><span className="quote-title"><strong>{option.name}</strong>{index === 1 && <span className="low-cost-label">Lowest estimate</span>}{isUsdc && <span className="simulation-tag">Simulation</span>}</span><span className="quote-amount">{cad(result.totalMaxCad)}<small>CAD</small></span><span className="quote-caption">{bearer === 'buyer' ? 'Includes estimated fee reserve' : 'Estimated buyer outlay'}</span><span className="quote-meta">{isUsdc ? 'CAD → USDC → EUR · FX still applies' : `${option.delivery.split(' ·')[0]} · ${(((option.rateCadPerEur / option.referenceRate) - 1) * 100).toFixed(2)}% FX markup`}</span></span>{active && <Check size={20} className="quote-check" />}</button>;
-              })}
-            </div>
-            {quote.id === 'usdc-route' && <div className="usdc-context"><Coins size={21} /><div><strong>Digital dollars. Still two currency conversions.</strong><p>The buyer pays CAD and Amira receives EUR. USDC changes the route, not the invoice currency.</p><button className="text-button" onClick={() => setModal('usdc')}>See the full USDC path<ArrowRight size={16} /></button></div></div>}
-            {quote.id !== 'usdc-route' && <button className="usdc-learn" onClick={() => setModal('usdc')}><Coins size={18} /><span>Would USDC remove the FX cost?</span><ChevronRight size={17} /></button>}
-            <div className={`receipt-callout ${bearer === 'buyer' ? 'resolved' : ''}`}><div className="callout-icon">{bearer === 'buyer' ? <Check size={19} /> : <AlertTriangle size={19} />}</div><div><strong>{bearer === 'buyer' ? 'You’ve accounted for the supplier’s full invoice.' : `The supplier could receive ${eur(costs.recipientMinEur)}.`}</strong><p>{bearer === 'buyer' ? `The buyer allows up to ${cad(costs.feeReserveCad)} for downstream fees. Final charges still need confirmation.` : `That’s up to ${eur(invoice.amountEur - costs.recipientMinEur)} short. Who covers the difference?`}</p></div></div>
-            <div className="fee-choice"><div><h3>Who covers downstream fees?</h3><p>{quote.id === 'usdc-route' ? 'Cash-out provider and receiving-bank charges.' : 'Intermediary and receiving-bank charges.'}</p></div><select aria-label="Who covers downstream fees?" value={bearer} onChange={e => setBearer(e.target.value as FeeBearer)}><option value="supplier">Supplier · deducted on arrival</option><option value="buyer">Buyer · budget for full invoice</option></select></div>
-            <details className="cost-breakdown"><summary><span>Where every dollar goes</span><ChevronDown size={16} /></summary><div className="breakdown-rows"><div><span>Invoice at reference rate <small>1 EUR = {quote.referenceRate.toFixed(4)} CAD</small></span><span>{cad(costs.principalCad)}</span></div>{quote.id === 'usdc-route' ? <><div><span>Buy USDC · conversion spread<small>{USDC_ASSUMPTIONS.fundingSpreadPercent}% funding spread</small></span><span>{cad(usdcBreakdown.fundingSpreadCad)}</span></div><div><span>Cash out to EUR · conversion spread<small>{USDC_ASSUMPTIONS.cashoutSpreadPercent}% cash-out spread</small></span><span>{cad(usdcBreakdown.cashoutSpreadCad)}</span></div><div><span>Funding fee</span><span>{cad(usdcBreakdown.fundingFeeCad)}</span></div><div><span>Network fee budget<small>{USDC_ASSUMPTIONS.networkFeeUsdc} USDC equivalent · synthetic</small></span><span>{cad(usdcBreakdown.networkFeeCad)}</span></div></> : <><div><span>Exchange-rate markup <small>{(((quote.rateCadPerEur / quote.referenceRate) - 1) * 100).toFixed(2)}%</small></span><span>{cad(costs.fxMarkupCad)}</span></div><div><span>Transfer fee</span><span>{cad(costs.transferFeeCad)}</span></div></>}<div><span>Downstream fees <span className="estimate-tag">estimated</span></span><span>{range(quote.downstreamFeeEur.min, quote.downstreamFeeEur.max, 'EUR')}<small>{bearer === 'supplier' ? 'deducted from supplier' : 'covered by buyer'}</small></span></div><div className="breakdown-total"><strong>Buyer total outlay</strong><strong>{range(costs.totalMinCad, costs.totalMaxCad)}</strong></div></div></details>
-            <details className="stress-panel"><summary><span><SlidersHorizontal size={16} />What if the exchange rate changes?</span><span>Explore<ChevronDown size={15} /></span></summary><div className="stress-content"><p>A scenario, never a forecast. Positive values mean the euro costs more Canadian dollars. This does not change your agreement.</p><div className="slider-label"><label htmlFor="fx-scenario">Change in CAD cost per euro</label><output htmlFor="fx-scenario">{stress > 0 ? '+' : ''}{stress}%</output></div><input id="fx-scenario" type="range" min="-10" max="10" step="1" value={stress} onChange={e => setStress(Number(e.target.value))} /><div className="slider-ends"><span>−10% · cheaper</span><span>+10% · more expensive</span></div><div className="scenario-result"><div><span>Buyer outlay, upper estimate</span><strong>{cad(scenario.totalMaxCad)}</strong></div><div><span>Estimated shipment margin</span><strong className={scenario.marginMinCad < 0 ? 'text-danger' : ''}>{cad(scenario.marginMinCad)}</strong></div></div><p className="scenario-caption">Margin = {cad(invoice.revenueCad)} expected sales − {cad(invoice.otherCostsCad)} other costs − payment outlay.</p></div></details>
-            <div className="decision-footer"><div className="savings-note"><Leaf size={18} /><span>{quote.id === DEMO_QUOTES[1].id ? <><strong>{cad(bank.totalMaxCad - specialist.totalMaxCad)} less</strong> than the sample bank route</> : <>There’s a lower-cost sample route. <br /><strong>Compare before you agree.</strong></>}</span></div><button className="primary-button" onClick={reviewAgreement} disabled={busy}>{busy ? 'Preparing…' : 'Review agreement'}<Counterseal state="aligned" size={22} /></button></div>
-            <p className="sheet-footnote">Estimates are synthetic. No money moves, and no exchange rate is locked.</p>
-          </> : <>
-            <div className="sheet-heading"><div><h2>{sealed ? 'Agreed. And worth keeping.' : 'A clear agreement, for both of you.'}</h2><p>{sealed ? 'The same terms. Two signatures. Your shared record.' : 'Review the snapshot, then add your signature.'}</p></div><span className={`agreement-status ${sealed ? 'sealed' : ''}`}>{sealed ? <ShieldCheck size={15} /> : <FileText size={15} />}{sealed ? 'Sealed' : 'Awaiting signatures'}</span></div>
-            {sealed && <div className="seal-moment"><div className="seal-icon"><Counterseal state="closed" size={31} /></div><div><strong>Both signatures verified</strong><span>Changes to these signed terms fail verification.</span></div></div>}
-            <div className="agreement-document"><div className="document-top"><span>Trade cost agreement</span><code>{agreement.snapshot.id}</code></div><h3>{agreement.snapshot.invoice.goods}</h3><p className="document-parties">{names.buyer}<span>↔</span>{names.supplier}</p><dl className="agreement-grid"><div><dt>Invoice</dt><dd>{eur(agreement.snapshot.invoice.amountEur)}<small>{agreement.snapshot.invoice.quantity} bottles × {eur(agreement.snapshot.invoice.unitPriceEur)}</small></dd></div><div><dt>Selected route</dt><dd>{agreement.snapshot.quote.name}<small>{agreement.snapshot.quote.id === 'usdc-route' ? 'Simulated CAD → USDC → EUR' : 'Synthetic quote · CAD → EUR'}</small></dd></div><div><dt>Buyer budgets</dt><dd>{range(agreement.snapshot.costs.totalMinCad, agreement.snapshot.costs.totalMaxCad)}<small>Estimated CAD outlay</small></dd></div><div><dt>Supplier expects</dt><dd>{range(agreement.snapshot.costs.recipientMinEur, agreement.snapshot.costs.recipientMaxEur, 'EUR')}<small>{agreement.snapshot.feeBearer === 'buyer' ? 'Full invoice target · not guaranteed' : 'After estimated deductions'}</small></dd></div></dl><div className="agreed-terms"><p><Check size={14} /><span><strong>{agreement.snapshot.feeBearer === 'buyer' ? 'Bilal (buyer)' : 'Amira (supplier)'}</strong> covers downstream fees, estimated at {range(agreement.snapshot.quote.downstreamFeeEur.min, agreement.snapshot.quote.downstreamFeeEur.max, 'EUR')}.</span></p><p><Check size={14} /><span>Payment due <strong>{agreement.snapshot.invoice.dueDate}</strong>. Delivery: {agreement.snapshot.terms.deliveryWindow}.</span></p><p><Check size={14} /><span>{agreement.snapshot.terms.note}</span></p></div><details className="snapshot-details"><summary>Rate, fee assumptions & record details<ChevronDown size={14} /></summary><p>Reference: {agreement.snapshot.quote.referenceRate.toFixed(4)} CAD/EUR. Customer rate: {agreement.snapshot.quote.rateCadPerEur.toFixed(5)} CAD/EUR. Transfer fee: {cad(agreement.snapshot.quote.transferFeeCad)}.</p><p>{agreement.snapshot.quote.source} · {agreement.snapshot.quote.asOf}</p><p>Created {new Date(agreement.snapshot.createdAt).toLocaleString()}. The displayed signature times come from this device.</p><p>{agreement.snapshot.disclosure}</p></details></div>
-            <div className="signature-grid">{(['buyer', 'supplier'] as PartyId[]).map(party => { const signature = agreement.signatures.find(s => s.partyId === party); return <div key={party} className={`signature-slot ${signature ? 'signed' : ''}`}><div className="signature-label"><span>{party === 'buyer' ? 'Buyer' : 'Supplier'}</span>{signature ? <span><Check size={13} />Signed</span> : <span>Pending</span>}</div><strong className={signature ? 'signature-name' : ''}>{names[party]}</strong><small>{signature ? `Verified · ${new Date(signature.signedAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}` : 'Ready to review and sign'}</small></div>; })}</div>
-            {!sealed ? <div className="signing-area">{selectedSigned ? <><p className="signed-wait"><Check size={18} />Your signature is recorded. The other party can now review.</p><button className="primary-button" onClick={() => setRole(role === 'buyer' ? 'supplier' : 'buyer')}>Review as {role === 'buyer' ? 'Amira' : 'Bilal'}<ArrowRight size={17} /></button><span className="demo-explanation">Switching fictional roles on this device for the demo.</span></> : <><div className="signing-as"><Users size={15} />You’re reviewing as <strong>{names[role]}</strong><button className="text-button" onClick={() => setRole(role === 'buyer' ? 'supplier' : 'buyer')}>Switch role</button></div><label className="consent"><input type="checkbox" checked={consent} onChange={e => setConsent(e.target.checked)} /><span>I agree to these terms and understand the costs are illustrative estimates, not a payment or rate guarantee.</span></label><button className="primary-button sign-button" disabled={!consent || busy} onClick={sign}><Fingerprint size={18} />{busy ? 'Signing & verifying…' : `Sign as ${role === 'buyer' ? 'Bilal' : 'Amira'}`}</button><span className="demo-explanation">Real cryptographic signature · fictional, unverified identity</span></>}</div> : <div className="sealed-actions"><button className="primary-button" onClick={download}><Download size={17} />Download signed record</button><button className="secondary-button" onClick={() => window.print()}><Printer size={16} />Print</button><button className="text-button" onClick={openVerifier}><ShieldCheck size={16} />Verify or test a change<ArrowRight size={15} /></button></div>}
-            <div className="hash-strip"><Fingerprint size={16} /><div><span>SHA-256 content fingerprint</span><code>{agreement.hash}</code></div></div><div className="record-footer"><button className="text-button" onClick={() => agreement.signatures.length ? setModal('revise') : revise()}><RotateCcw size={14} />Revise terms</button><button className="text-button" onClick={openOtherTab}><ExternalLink size={14} />Open other party in a tab</button></div><p className="sheet-footnote">Keys and messages stay in memory. Download the record before refreshing.</p>
-          </>}
-          {error && <div role="alert" className="error-message">{error}<button className="text-button" onClick={() => setError('')}>Dismiss</button></div>}
-          </section>
-          <footer className="workspace-footer"><button onClick={() => setModal('sources')}><LockKeyhole size={14} />Local demo · See assumptions<ArrowUpRight size={14} /></button></footer>
-        </div>}
-      </main>
-    </div>
-    <nav className="bottom-nav" aria-label="Main navigation"><button aria-label="Chat" aria-current={screen === 'chat' ? 'page' : undefined} onClick={() => goTo('chat')}><MessageSquare size={22} /><span>Chat</span></button><button aria-label="Finance" aria-current={screen === 'finance' ? 'page' : undefined} onClick={() => goTo('finance')}><span className="nav-icon"><ArrowLeftRight size={23} />{agreement && !sealed && <span className="nav-dot" />}</span><span>Finance</span></button></nav>
-    {notice && <div className="toast" role="status"><Check size={17} />{notice}</div>}
-    {modal === 'guide' && <Modal title="One deal. A 90-second story." onClose={() => setModal(null)}><p className="dialog-intro">SANAD helps trading partners agree on the real cost of a cross-border invoice before anyone sends money.</p><ol className="guide-steps"><li><span>1</span><div><strong>Find the missing €35.</strong><p>Amira needs €6,000. In the sample bank route, deductions could leave her short.</p></div></li><li><span>2</span><div><strong>Make one better decision.</strong><p>Open Finance from the invoice. Compare all three routes, including the full USDC path, then choose Buyer to cover downstream fees. Open the exchange-rate scenario to see how a 5% change affects the margin.</p></div></li><li><span>3</span><div><strong>Agree together.</strong><p>Review the agreement and sign as Bilal. Switch to Amira, review, and sign the very same terms.</p></div></li><li><span>4</span><div><strong>Keep something verifiable.</strong><p>Download the signed record. Verify it, then test a changed amount and watch verification fail.</p></div></li></ol><div className="plain-note">The people, conversation and quotes are fictional. The cost calculations, signatures, verification and file export work in your browser.</div><button className="primary-button full-width" onClick={() => setModal(null)}>Explore the sample deal<ArrowRight size={17} /></button></Modal>}
-    {modal === 'sources' && <Modal title="Transparent by design." onClose={() => setModal(null)} wide><p className="dialog-intro">This is a decision prototype. It does not send money or obtain a bank quote.</p><div className="source-columns"><div><h3>Real in this demo</h3><ul><li>Cost, receipt and margin calculations.</li><li>FX stress scenarios that you control.</li><li>SHA-256 and two ECDSA P-256 signatures.</li><li>Record download, import and verification.</li><li>Same-browser tabs can share a demo room.</li></ul></div><div><h3>Clearly simulated</h3><ul><li>Bilal, Amira and their conversation.</li><li>The invoice, sale proceeds and other costs.</li><li>All three routes, exchange rates and fee bands.</li><li>Delivery estimates and participant identities.</li></ul></div></div><h3>Where the numbers come from</h3><p>All values are authored scenario inputs dated 5 September 2026. The reference rate is 1.5000 CAD per EUR. Bank wire adds 2.60% and a CA$35 transfer fee; Specialist transfer adds 0.55% and CA$8. Downstream fee ranges are assumptions, not historical observations or guaranteed bounds. These are fictional routes, not recommendations of real providers.</p><p>Buyer coverage adds an estimated fee reserve to outlay and targets the full invoice receipt. Supplier coverage deducts estimated fees from receipt. Neither proves what a provider will deliver. Compare identical invoices and fee responsibilities.</p><h3>Privacy, precisely</h3><p>No account, analytics, external runtime API or message upload. Data and signing keys live in this page’s memory; refreshing clears them unless another open demo tab shares its state. Tabs communicate locally through BroadcastChannel. This is not a production encrypted messenger or verified digital identity system. Exported records include deal details and public keys; private keys are never exported.</p><h3>Why these costs matter</h3><p>Real international transfers can involve intermediary and receiving-bank deductions. The following primary sources explain the mechanism; they do not supply our demo prices.</p><p>USDC route assumptions: 1 USDC = 1 USD, 1 USD = 1.35 CAD, and 1 EUR = 1.111111 USD. Funding adds 0.6%, cash-out adds 1%, funding costs CA$4 and the network budget is 0.25 USDC equivalent. Cash-out/receiving fees are estimated at €3–10. Neither route availability in Tunisia nor these prices has been verified. FX, issuer/peg and provider risks remain. No wallet or blockchain is connected.</p><div className="source-links"><a href="https://www.circle.com/usdc" target="_blank" rel="noreferrer">Circle · USDC is a US-dollar stablecoin<ArrowUpRight size={15} /></a><a href="https://www.ofx.com/en-ca/faqs/are-there-any-transfer-fees/" target="_blank" rel="noreferrer">OFX · Third-party bank deductions<ArrowUpRight size={15} /></a><a href="https://www.bankofcanada.ca/rates/exchange/background-information-on-foreign-exchange-rates/" target="_blank" rel="noreferrer">Bank of Canada · Indicative reference rates<ArrowUpRight size={15} /></a><a href="https://www.swift.com/products/swift-go" target="_blank" rel="noreferrer">Swift Go · Existing solutions for predictable fees<ArrowUpRight size={15} /></a></div><p className="small-copy">No claim of FX prediction, Sharia certification, legal enforceability or real customer validation.</p></Modal>}
-    {modal === 'edit' && <Modal title={agreement ? 'Invoice in this agreement' : 'Make it your sample deal.'} onClose={() => setModal(null)}><p className="dialog-intro">Edit the illustrative invoice. Costs update from the same three sample quotes.</p><form className="invoice-form" onSubmit={saveInvoice}><label>Goods<input required maxLength={120} value={editInvoice.goods} disabled={!!agreement} onChange={e => setEditInvoice({ ...editInvoice, goods: e.target.value })} /></label><div className="form-row"><label>Quantity · bottles<input type="number" min="1" max="1000000" step="1" required value={editInvoice.quantity || ''} disabled={!!agreement} onChange={e => setEditInvoice({ ...editInvoice, quantity: Number(e.target.value) })} /></label><label>Unit price · EUR<input type="number" min="0.01" max="1000000" step="0.01" required value={editInvoice.unitPriceEur || ''} disabled={!!agreement} onChange={e => setEditInvoice({ ...editInvoice, unitPriceEur: Number(e.target.value) })} /></label></div><div className="form-total"><span>Invoice total</span><strong>{eur(editInvoice.quantity * editInvoice.unitPriceEur)}</strong></div><div className="form-row"><label>Expected sales · CAD<input type="number" min="0" max="1000000000" step="0.01" required value={editInvoice.revenueCad} disabled={!!agreement} onChange={e => setEditInvoice({ ...editInvoice, revenueCad: Number(e.target.value) })} /></label><label>Other costs · CAD<input type="number" min="0" max="1000000000" step="0.01" required value={editInvoice.otherCostsCad} disabled={!!agreement} onChange={e => setEditInvoice({ ...editInvoice, otherCostsCad: Number(e.target.value) })} /></label></div><label>Payment due<input type="date" required value={editInvoice.dueDate} disabled={!!agreement} onChange={e => setEditInvoice({ ...editInvoice, dueDate: e.target.value })} /></label>{editErrors.length > 0 && <ul role="alert" className="form-errors">{editErrors.map(err => <li key={err}>{err}</li>)}</ul>}{agreement ? <div className="plain-note">This invoice is in a frozen agreement. Choose “Revise terms” in the agreement to start a new draft.</div> : <button type="submit" className="primary-button full-width">Update invoice<ArrowRight size={16} /></button>}</form></Modal>}
-    {modal === 'verify' && <Modal title="Trust the record. Check the proof." onClose={() => setModal(null)} wide><p className="dialog-intro">Verify a downloaded SANAD record, or test this agreement. Checks run locally on your device.</p><div className="verification-tools"><label className="upload-button"><Upload size={18} /><strong>Choose a signed record</strong><span>.json · up to 200 KB</span><input type="file" aria-label="Upload signed record" accept=".json,application/json" onChange={async e => { const file = e.target.files?.[0]; if (!file) return; if (file.size > 200000) { setVerifyResult({ valid: false, complete: false, hashMatches: false, signaturesValid: false, message: 'This file is too large. Choose a SANAD JSON record smaller than 200 KB.' }); return; } const text = await file.text(); setVerifyText(text); void checkRecord(text, file.name); }} /></label><details className="paste-record"><summary>Or paste a JSON record<ChevronDown size={14} /></summary><textarea aria-label="JSON record to verify" value={verifyText} maxLength={200000} onChange={e => setVerifyText(e.target.value)} placeholder="Paste the full contents of a SANAD export" /><button className="secondary-button" disabled={!verifyText.trim() || busy} onClick={() => checkRecord(verifyText, 'Pasted record')}>Verify pasted record</button></details></div>{agreement && <div className="test-buttons"><button className="secondary-button" disabled={busy} onClick={() => checkRecord(agreement, 'Original agreement')}><ShieldCheck size={16} />Check original</button><button className="secondary-button" disabled={busy} onClick={() => { const altered = structuredClone(agreement); altered.snapshot.invoice.amountEur += 1; altered.snapshot.invoice.unitPriceEur = altered.snapshot.invoice.amountEur / altered.snapshot.invoice.quantity; altered.snapshot.costs = calculateCosts(altered.snapshot.invoice, altered.snapshot.quote, altered.snapshot.feeBearer); void checkRecord(altered, 'Test copy: invoice increased by €1'); }}><FlaskConical size={16} />Test a changed amount</button></div>}{busy && <p role="status">Checking the fingerprint and signatures…</p>}{verifyResult && <div role="status" className={`verification-result ${verifyResult.valid && verifyResult.complete ? 'pass' : 'fail'}`}><div className="verification-result-title">{verifyResult.valid && verifyResult.complete ? <ShieldCheck size={25} /> : <AlertTriangle size={25} />}<div><h3>{verifyResult.valid ? verifyResult.complete ? 'Record intact. Both signatures valid.' : 'Intact draft. Still needs signatures.' : 'This record did not pass verification.'}</h3><span>{verifyLabel}</span></div></div><p>{verifyResult.message}</p><ul><li>{verifyResult.hashMatches ? <Check size={15} /> : <X size={15} />}Content fingerprint matches</li><li>{verifyResult.signaturesValid ? <Check size={15} /> : <X size={15} />}Included signatures are valid</li><li>{verifyResult.complete ? <Check size={15} /> : <X size={15} />}Both distinct parties have signed</li></ul></div>}<p className="small-copy">The change test alters a copy; your original stays intact. Verification proves consistency with the included keys, not a signer’s real-world identity. A malicious actor replacing the entire record and both keys requires an independent trusted copy to detect.</p></Modal>}
-    {modal === 'usdc' && <Modal title="USDC changes the route. Not the FX." onClose={() => setModal(null)} wide><p className="dialog-intro">USDC tracks the US dollar. Your sample invoice is in euros and the buyer starts with Canadian dollars. Both conversions still matter.</p><ol className="usdc-path"><li><span>1</span><div><strong>Buy USDC with CAD</strong><p>A funding provider converts CAD into dollar-linked USDC. This scenario adds a 0.6% conversion spread and a CA$4 funding fee.</p></div></li><li><span>2</span><div><strong>Transfer USDC</strong><p>The network budget is 0.25 USDC equivalent, or {cad(usdcBreakdown.networkFeeCad)} here. That small network fee is only one part of the cost.</p></div></li><li><span>3</span><div><strong>Cash out to EUR</strong><p>Amira still needs euros. The scenario adds a 1% conversion spread plus €3–10 in possible cash-out and receiving fees.</p></div></li></ol><div className="plain-note"><strong>Could it help?</strong><p>Possibly, if both businesses already use USDC or a supported route reduces the total cost. For this sample, the specialist route is cheaper. A dollar peg does not fix a CAD/EUR rate.</p></div><p className="small-copy">This is a hypothetical cost comparison. No wallet, balance, transfer or blockchain transaction is created. Route availability in Tunisia is unverified. Peg, issuer and cash-out provider risks remain; no Sharia-compliance claim is made.</p><a className="source-link" href="https://www.circle.com/usdc" target="_blank" rel="noreferrer">Source: Circle’s USDC description<ArrowUpRight size={16} /></a><button className="primary-button full-width" onClick={() => { setModal(null); goTo('finance'); if (!agreement) setQuoteId('usdc-route'); }}>{agreement ? 'Back to your agreement' : 'Compare the USDC estimate'}<ArrowRight size={17} /></button></Modal>}
-    {(modal === 'reset' || modal === 'revise') && <Modal title={modal === 'reset' ? 'Start the sample deal again?' : 'Create a fresh agreement?'} onClose={() => setModal(null)}><p className="dialog-intro">{modal === 'reset' ? 'This clears messages, edits and signatures in this demo room. Download a sealed record first if you want to keep it.' : 'Changing the terms starts a new draft. Existing signatures cannot carry over. Download the current record first if you need it.'}</p><div className="dialog-actions"><button className="secondary-button" onClick={() => setModal(null)}>Keep working</button><button className="primary-button" onClick={modal === 'reset' ? reset : revise}>{modal === 'reset' ? 'Reset demo' : 'Start new draft'}<RotateCcw size={15} /></button></div></Modal>}
+  if (!loaded) return <div className="loading" role="status">Opening your workspace…</div>;
+  const nav = <><button aria-current={page !== 'wallet' ? 'page' : undefined} onClick={() => go('invoices')}><FileText size={21}/><span>Invoices</span></button><button aria-current={page === 'wallet' ? 'page' : undefined} onClick={() => go('wallet')}><Wallet size={21}/><span>Wallet</span></button></>;
+  const filtered = records.filter(record => filter === 'all' || (filter === 'issued' ? record.invoice.issuer === profile?.business : record.invoice.customer === profile?.business));
+  return <div className="app-shell">
+    <aside className="desktop-nav"><div className="wordmark">SANAD <span lang="ar">سند</span></div><p className="nav-description">Business, in agreement.</p><nav aria-label="Main navigation">{nav}</nav><div className="nav-bottom"><Counterseal/><p>Clear terms.<br/>Shared confidence.</p><button className="text-button" onClick={() => setOverlay('security')}><ShieldCheck size={17}/> Privacy & records</button></div></aside>
+    <div className="main-shell"><header className="topbar"><div className="wordmark mobile-wordmark">SANAD <span lang="ar">سند</span></div><span className="network-tag"><span className="network-dot"/>USDC · Solana</span><button className="profile-button" onClick={() => setOverlay('security')} aria-label="Business profile and privacy"><Building2 size={18}/><span>{profile?.business || 'Your business'}</span></button></header><main>
+      {error && <div className="error-banner" role="alert">{error}<button className="icon-button" aria-label="Dismiss error" onClick={() => setError('')}><X size={17}/></button></div>}
+      {!profile ? <section className="welcome folio"><Counterseal/><h1>Good business starts<br/>with clear terms.</h1><p>Create invoices for goods or services, agree with your trading partner, and request USDC on Solana.</p><form onSubmit={e => { e.preventDefault(); const data = new FormData(e.currentTarget); const business = String(data.get('business')).trim(); if (business.length < 2) { setError('Enter your business name.'); return; } setProfile({ business, wallet: '' }); }}><label>Your business name<input name="business" required minLength={2} maxLength={120} placeholder="Registered or trading name" autoComplete="organization"/></label><button className="primary">Create workspace <ArrowRight size={19}/></button></form><p className="fine">One business on this device. Your invoices stay in this browser; share records with your trading partner when ready.</p></section>
+      : page === 'create' ? <InvoiceBuilder profile={profile} busy={busy} onBack={() => go('invoices')} onSubmit={input => void run(async () => { const unsigned = await createInvoiceRecord(createInvoice(input)); await putRecord(await signInvoiceRecord(unsigned, await getSigner(), 'issuer')); setNotice('Invoice created and signed. Ready to share.'); })}/>
+      : page === 'wallet' ? <WalletPage profile={profile} saveWallet={wallet => { setProfile({ ...profile, wallet }); setNotice('Receiving address saved.'); }} copy={copy}/>
+      : selected ? <section className="invoice-detail"><div className="back-row"><button className="text-button" onClick={() => setSelectedId(null)}><ArrowLeft size={18}/> All invoices</button><span className={`status ${invoiceStatus(selected) === 'acknowledged' ? 'complete' : ''}`}>{status(selected)}</span></div><article className="folio invoice-paper"><div className="record-heading"><div><h1>{selected.invoice.reference}</h1><p>Issued {new Date(selected.invoice.createdAt).toLocaleDateString('en-CA', { dateStyle: 'medium' })}</p></div><Counterseal complete={invoiceStatus(selected) === 'acknowledged'}/></div><div className="parties"><div><span>From</span><strong>{selected.invoice.issuer}</strong></div><div><span>Bill to</span><strong>{selected.invoice.customer}</strong></div></div><div className="line-items"><div className="line-header"><span>Goods or services</span><span>Amount · USDC</span></div>{selected.invoice.lines.map((line, i) => <div className="line-item" key={i}><div><strong>{line.description}</strong><small>{line.quantity} × {formatUsdc(line.unitPriceMicros)} USDC</small></div><strong>{formatUsdc(totalUsdc([line]))}</strong></div>)}</div><div className="invoice-total"><span>Total due</span><strong>{formatUsdc(selected.invoice.totalMicros)} <small>USDC</small></strong></div><div className="payment-strip"><span><span className="network-dot"/>{PAYMENT_NETWORK_LABEL}</span><span>Due {selected.invoice.dueDate}</span></div>{selected.invoice.note && <div className="invoice-note"><h3>Terms & notes</h3><p>{selected.invoice.note}</p></div>}<div className="signature-section"><h2>Agreed on the same record</h2><p>The signatures bind these line items, amount, recipient address and blockchain.</p>{(['issuer', 'customer'] as const).map(role => { const signature = selected.signatures.find(item => item.role === role); return <div className="signature-row" key={role}><span className={`signature-icon ${signature ? 'is-signed' : ''}`}>{signature ? <Check size={18}/> : <Fingerprint size={18}/>}</span><div><strong>{role === 'issuer' ? selected.invoice.issuer : selected.invoice.customer}</strong><small>{signature ? role === 'issuer' ? 'Invoice signed' : 'Terms acknowledged' : 'Awaiting acknowledgement'}</small></div></div>; })}<div className="hash-line"><Fingerprint size={16}/><code title={selected.hash}>{short(selected.hash)}</code><button className="text-button" onClick={() => copy(selected.hash, 'Invoice fingerprint copied.')} aria-label="Copy invoice fingerprint"><Copy size={15}/></button></div></div></article>
+        <div className="detail-actions">{profile.business === selected.invoice.customer && !selected.signatures.some(item => item.role === 'customer') && <button className="primary" disabled={busy} onClick={() => void run(async () => { await putRecord(await signInvoiceRecord(selected, await getSigner(), 'customer')); setNotice('Terms acknowledged. Share the updated record with the issuer.'); })}>Acknowledge terms <Check size={18}/></button>}<button className="primary" onClick={() => void openShare()} disabled={busy}>Share encrypted invoice <LockKeyhole size={18}/></button><button className="secondary" onClick={openImport}><Upload size={18}/> Import acknowledgement</button></div>
+        <section className="payment-details"><h2>Pay in USDC</h2><p>Send {formatUsdc(selected.invoice.totalMicros)} USDC on <strong>Solana mainnet</strong> to this receiving address.</p><div className="address-row"><code>{selected.invoice.payment.recipientWallet}</code><button className="icon-button" aria-label="Copy payment address" onClick={() => copy(selected.invoice.payment.recipientWallet)}><Copy size={18}/></button></div><dl className="cost-lines"><div><dt>Supplier receives</dt><dd>{formatUsdc(selected.invoice.totalMicros)} USDC</dd></div><div><dt>SANAD payment fee</dt><dd>0 USDC</dd></div><div><dt>Network cost</dt><dd>Paid separately in SOL</dd></div></dl><p className="fine">{NETWORK_FEE_NOTE}</p><div className="button-row"><a className="primary" href={buildSolanaPayUri(selected.invoice)}>Open in Solana wallet <ExternalLink size={17}/></a><button className="secondary" onClick={() => copy(buildSolanaPayUri(selected.invoice), 'Solana Pay request copied.')}><Copy size={16}/> Copy request</button></div><p className="fine">Select mainnet in your compatible wallet before reviewing and submitting. SANAD does not monitor the blockchain or mark this invoice paid.</p><details><summary>Token & network details</summary><dl><dt>Blockchain</dt><dd>Solana mainnet-beta</dd><dt>Token</dt><dd>Native USDC · 6 decimals</dd><dt>USDC mint</dt><dd><code>{SOLANA_USDC_MINT}</code></dd></dl><p className="fine">Verify the receiving address with your trading partner. An invoice signature does not verify wallet ownership or a business identity.</p></details></section></section>
+      : <section className="invoice-list"><div className="page-heading"><div><h1>Invoices</h1><p>Your business. Your terms. Settled in USDC.</p></div><button className="primary" onClick={() => go('create')}><Plus size={19}/> Create invoice</button></div><div className="list-toolbar"><div className="tabs" role="group" aria-label="Filter invoices">{[['all', 'All'], ['issued', 'Issued'], ['received', 'Received']].map(([value, label]) => <button key={value} aria-pressed={filter === value} onClick={() => setFilter(value)}>{label}</button>)}</div><button className="text-button" onClick={openImport}><Upload size={16}/> Import invoice</button></div>{filtered.length ? <div className="folio invoice-ledger">{filtered.map(record => <button className="invoice-row" key={record.invoice.id} onClick={() => setSelectedId(record.invoice.id)}><span className="file-icon"><FileText size={22}/></span><span className="invoice-row-main"><strong>{record.invoice.issuer === profile.business ? record.invoice.customer : record.invoice.issuer}</strong><small>{record.invoice.reference} · Due {record.invoice.dueDate}</small><span className="row-network">USDC · Solana mainnet</span></span><span className="invoice-row-amount"><strong>{formatUsdc(record.invoice.totalMicros)} <small>USDC</small></strong><span className={`status ${invoiceStatus(record) === 'acknowledged' ? 'complete' : ''}`}>{status(record)}</span></span><ChevronRight size={19}/></button>)}</div> : <div className="empty-state folio"><div className="empty-mark"><FilePlus2 size={34}/><Counterseal/></div><h2>{records.length ? 'No invoices in this view' : 'Your next agreement starts here.'}</h2><p>Create an invoice for a shipment, a service, or your next collaboration. Clear line items, a shared record, one currency.</p><button className="primary" onClick={() => go('create')}>{records.length ? 'Create invoice' : 'Create your first invoice'} <ArrowRight size={18}/></button><button className="text-button" onClick={openImport}>Have an invoice? Import it</button></div>}<div className="ledger-foot"><ShieldCheck size={17}/><p>Signed terms. Encrypted sharing. USDC on Solana.</p><button className="text-button" onClick={() => setOverlay('security')}>How it works <ArrowRight size={15}/></button></div></section>}
+    </main><nav className="bottom-nav" aria-label="Mobile navigation">{nav}</nav></div>
+    {notice && <div className="toast" role="status"><Check size={17}/>{notice}</div>}
+    {overlay === 'import' && <Modal title="Import an invoice" onClose={() => setOverlay(null)}><p>Open the record shared by your trading partner. Its signatures are checked before it joins your workspace.</p><label className="file-upload"><Upload size={19}/> Choose invoice file<input type="file" accept=".json,application/json" onChange={e => { const file = e.target.files?.[0]; if (file) void run(async () => { if (file.size > 1_000_000) throw new Error('Choose a file smaller than 1 MB.'); setImportText(await file.text()); }); }}/></label><label>Or paste the record<textarea rows={5} value={importText} onChange={e => setImportText(e.target.value)} maxLength={1_000_000} placeholder="Invoice JSON or encrypted envelope"/></label><label>Decryption key<input type="password" autoComplete="off" value={importKey} onChange={e => setImportKey(e.target.value)} placeholder="Required for an encrypted invoice"/></label><p className="fine">Ask the sender for the key through a separate channel. Plain signed JSON files also work.</p>{error && <p className="field-error" role="alert">{error}</p>}<button className="primary" disabled={busy || !importText.trim()} onClick={() => void importRecord()}>{busy ? 'Verifying…' : 'Verify & import'} <ShieldCheck size={18}/></button></Modal>}
+    {overlay === 'share' && selected && sealed && <Modal title="Share an encrypted invoice" onClose={() => { setOverlay(null); setSealed(null); }}><div className="security-highlight"><LockKeyhole size={24}/><p><strong>AES-256-GCM encryption</strong><br/>The file contains the signed invoice. The key stays separate.</p></div><button className="primary" onClick={() => download(sealed.envelope, `${selected.invoice.reference.replace(/[^a-z0-9-]/gi, '-')}.sanad.json`)}><ArrowDownToLine size={18}/> Download encrypted invoice</button><button className="secondary" onClick={() => copy(sealed.envelope, 'Encrypted invoice copied.')}><Copy size={17}/> Copy encrypted invoice</button><label>Private decryption key<input readOnly type="password" value={sealed.key}/></label><button className="secondary" onClick={() => copy(sealed.key, 'Decryption key copied. Send it separately.')}><Copy size={17}/> Copy decryption key</button><p className="fine">Send the file and key through different trusted channels. Keep the key before closing this panel; SANAD cannot recover it. Anyone with both can read the invoice.</p><details><summary>Unencrypted export</summary><p className="fine">This JSON includes readable business terms, the receiving address, public keys and signatures.</p><button className="secondary" onClick={() => download(exportInvoiceRecord(selected), `${selected.invoice.reference.replace(/[^a-z0-9-]/gi, '-')}.json`)}>Download signed JSON</button></details>{error && <p className="field-error" role="alert">{error}</p>}</Modal>}
+    {overlay === 'security' && <Modal title="Privacy & records" onClose={() => setOverlay(null)}><div className="security-highlight"><ShieldCheck size={27}/><p><strong>{profile?.business || 'Your business workspace'}</strong><br/>One business identity on this device.</p></div><h3>Encrypted when you share</h3><p>AES-256-GCM protects an exported invoice with a fresh 256-bit key and nonce. The key is shared separately; changes to the encrypted file fail authentication.</p><h3>Signed, down to the blockchain</h3><p>Each invoice is hashed with SHA-256 and signed using ECDSA P-256. The amount, line items, businesses, due date, Solana network, USDC mint and receiving address are all bound to the record. Imported signatures are verified and conflicting versions are rejected.</p><h3>What stays on this device</h3><p>Your profile and invoice records are saved in this browser without encryption at rest. Signing keys stay in memory for this session and are never included in exports. Clearing browser data removes saved records.</p><h3>What these protections mean</h3><p>Signatures prove record integrity against the included keys. Business names are self-declared, with no identity verification or wallet ownership check. Confirm your partner’s fingerprint independently. This is encrypted file sharing, not a messaging encryption protocol.</p><p>Solana transfers and wallet addresses are public. SANAD has no custody of funds, live balance feed or payment confirmation service.</p><button className="secondary" onClick={() => setOverlay(null)}>Back to workspace</button></Modal>}
   </div>;
 }
 
-export default App;
+function InvoiceBuilder({ profile, busy, onBack, onSubmit }: { profile: Profile; busy: boolean; onBack: () => void; onSubmit: (input: InvoiceInput) => void }) {
+  const [lines, setLines] = useState([{ description: '', quantity: '1', price: '' }]);
+  const [formError, setFormError] = useState('');
+  const due = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);
+  let total = '0.00';
+  try { total = formatUsdc(totalUsdc(lines.filter(line => line.price).map(line => ({ description: line.description || 'Item', quantity: Number(line.quantity), unitPriceMicros: parseUsdc(line.price) })))); } catch { /* Incomplete fields are validated on submit. */ }
+  function update(index: number, field: 'description' | 'quantity' | 'price', value: string) { setLines(current => current.map((line, i) => i === index ? { ...line, [field]: value } : line)); }
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault(); setFormError('');
+    try {
+      const data = new FormData(event.currentTarget);
+      const input = { issuer: profile.business, customer: String(data.get('customer')).trim(), reference: String(data.get('reference')).trim(), dueDate: String(data.get('dueDate')), recipientWallet: String(data.get('wallet')).trim(), note: String(data.get('note')).trim(), lines: lines.map(line => ({ description: line.description.trim(), quantity: Number(line.quantity), unitPriceMicros: parseUsdc(line.price) })) };
+      createInvoice(input); onSubmit(input);
+    } catch (reason) { setFormError(reason instanceof Error ? reason.message : 'Check your invoice details.'); }
+  }
+  return <section className="builder"><button className="text-button back-button" onClick={onBack}><ArrowLeft size={18}/> All invoices</button><div className="page-heading"><div><h1>Create invoice</h1><p>Clear terms for any goods or services.</p></div><Counterseal/></div><form className="folio invoice-form" onSubmit={submit}><div className="form-section"><h2>Business details</h2><div className="form-grid"><label>From<input value={profile.business} disabled/></label><label>Bill to<input name="customer" required maxLength={120} placeholder="Customer business name" autoComplete="off"/></label><label>Invoice reference<input name="reference" required maxLength={80} placeholder="INV-2026-001"/></label><label>Payment due<input type="date" name="dueDate" required defaultValue={due}/></label></div></div><div className="form-section"><h2>Line items</h2>{lines.map((line, i) => <div className="line-editor" key={i}><label className="description-field">Description<input aria-label={`Item ${i + 1} description`} required maxLength={500} placeholder="Goods or service description" value={line.description} onChange={e => update(i, 'description', e.target.value)}/></label><label>Quantity<input aria-label={`Item ${i + 1} quantity`} inputMode="decimal" required value={line.quantity} onChange={e => update(i, 'quantity', e.target.value)}/></label><label>Unit price · USDC<input aria-label={`Item ${i + 1} unit price`} inputMode="decimal" required placeholder="0.00" value={line.price} onChange={e => update(i, 'price', e.target.value)}/></label><button type="button" className="icon-button remove-line" aria-label={`Remove item ${i + 1}`} disabled={lines.length === 1} onClick={() => setLines(current => current.filter((_, n) => n !== i))}><Trash2 size={18}/></button></div>)}<button className="text-button" type="button" disabled={lines.length >= 50} onClick={() => setLines(current => [...current, { description: '', quantity: '1', price: '' }])}><Plus size={17}/> Add line item</button><div className="invoice-total"><span>Invoice total</span><strong>{total} <small>USDC</small></strong></div></div><div className="form-section"><h2>Payment details</h2><div className="payment-strip"><span><span className="network-dot"/>USDC · Solana mainnet</span><span>0 SANAD fee</span></div><label>Receiving Solana wallet<input name="wallet" required defaultValue={profile.wallet} spellCheck={false} autoComplete="off" placeholder="Your Solana public wallet address" maxLength={44}/></label><p className="fine">Use a wallet you control that supports native USDC on Solana. The sender pays the network cost separately in SOL.</p><label>Terms & notes <span className="optional">Optional</span><textarea name="note" maxLength={5000} rows={3} placeholder="Delivery, scope, purchase order, or payment terms"/></label></div>{formError && <p className="field-error" role="alert">{formError}</p>}<p className="fine">Creating this invoice signs these exact terms with your business’s session key. Share the record for your customer’s acknowledgement.</p><button className="primary" disabled={busy} type="submit">{busy ? 'Signing invoice…' : 'Create & sign invoice'} <Fingerprint size={18}/></button></form></section>;
+}
+
+function WalletPage({ profile, saveWallet, copy }: { profile: Profile; saveWallet: (wallet: string) => void; copy: (value: string, message?: string) => void }) {
+  const [wallet, setWallet] = useState(profile.wallet);
+  const [error, setError] = useState('');
+  return <section className="wallet-page"><div className="page-heading"><div><h1>Your USDC wallet</h1><p>Fund once. Pay your business partners on Solana.</p></div><Wallet size={30}/></div><section className="folio wallet-receive"><h2>Receive USDC</h2><p>Save the public address of your Solana wallet. Your wallet holds the funds and approves every payment.</p><form onSubmit={e => { e.preventDefault(); setError(''); if (!isValidSolanaAddress(wallet.trim())) { setError('Enter a valid Solana public wallet address.'); return; } saveWallet(wallet.trim()); }}><label>Solana wallet address<input required value={wallet} onChange={e => setWallet(e.target.value)} maxLength={44} placeholder="Paste your public receiving address" autoComplete="off" spellCheck={false}/></label>{error && <p className="field-error" role="alert">{error}</p>}<div className="button-row"><button className="primary">Save address <Check size={17}/></button>{profile.wallet && <button type="button" className="secondary" onClick={() => copy(profile.wallet, 'Solana receiving address copied.')}><Copy size={17}/> Copy address</button>}</div></form><p className="fine">An address book entry does not connect or verify a wallet. Send only native USDC on Solana mainnet to this address.</p></section><section className="funding-section"><h2>Add USDC</h2><div className="direct-funding"><ArrowDownToLine size={25}/><div><h3>Transfer from another wallet</h3><p>Already hold USDC on Solana? Transfer it to your receiving address. SANAD charges no funding or payment fee.</p><p className="fine">The sending wallet still pays Solana network costs in SOL. Keep some SOL available for your own payments. An exchange may also charge a withdrawal fee.</p></div></div><h3>Buy USDC through a provider</h3><p>Third parties may charge a purchase fee, payment-method fee and conversion spread. Review their final quote before funding. These are provider information links; no checkout is connected to SANAD.</p><div className="provider-list">{FUNDING_PROVIDERS.map(provider => <a key={provider.id} className="provider-row" href={provider.url} target="_blank" rel="noreferrer"><div><strong>{provider.name}</strong><p>{provider.description}</p><small>{provider.eligibility}</small></div><ExternalLink size={18}/></a>)}</div><p className="fine">Only choose a provider that approves your business, country and funding method and explicitly delivers USDC on Solana. Fiat purchase happens with that provider; invoices settle in USDC.</p></section><details><summary>Understand Solana network costs</summary><p>{NETWORK_FEE_NOTE}</p><p>Gas is separate from provider funding fees. Its US dollar value depends on SOL’s price; it is not a fixed quote or a guarantee of a total below one cent.</p><a href="https://solana.com/docs/core/fees" target="_blank" rel="noreferrer">Solana fee documentation <ExternalLink size={13}/></a></details></section>;
+}

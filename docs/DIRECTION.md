@@ -1,3 +1,5 @@
+> Historical cost-comparison direction. The current B2B USDC invoice implementation is described in README.md and PRODUCT.md.
+
 # Interface decision
 
 User delegated approach, stack and design selection. This session uses direct code implementation to match the lean-prototype request; no standing workflow preference is stored.

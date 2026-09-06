@@ -1,3 +1,5 @@
+> Historical cost-comparison direction. The current B2B USDC invoice implementation is described in README.md and PRODUCT.md.
+
 # SANAD: agree on what arrives
 
 Decision date: 5 September 2026. This is a hackathon product decision, not customer validation or a claim that the project will win.

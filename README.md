@@ -1,107 +1,69 @@
-# SANAD — Agree on what arrives
+# SANAD / سند — Business, in agreement
 
-A lean, mobile-first MuslimHacks Challenge 02 prototype: **conversation → cost decision → mutual agreement → verifiable record**. Chat and Finance are separate screens at every width, connected by the invoice and persistent navigation.
-
-A fictional Montréal importer owes a supplier in Sfax €6,000. Sending €6,000 may leave the supplier short after bank deductions. SANAD compares full buyer outlay, makes the possible receipt gap visible, and records which party covers it. Both parties sign the same snapshot before any payment happens.
+Create B2B invoices for goods or services, exchange encrypted signed records, and request **native USDC on Solana mainnet**. Each device has its own business profile. There are no fictional conversations, persona-switching controls, sample oil invoices, bank-wire choices, or fabricated balances in the active app.
 
 ## Run
 
-Requires Node.js 22+ and npm.
+Node.js 22+ is required. The browser app uses React, TypeScript and Vite:
 
 ```sh
 npm install
 npm run dev
 ```
 
-Open http://127.0.0.1:5173. The current workspace's preview is already running there. Use localhost or HTTPS: browser cryptography needs a secure context. Do not open index.html directly from disk.
+Open http://127.0.0.1:5173 using localhost or HTTPS, which WebCrypto requires.
 
-```sh
-npm run build
-npm run preview
-npm test
-npm run test:coverage
-```
-
-The production build is `dist/`, ready for any static HTTPS host. No backend, environment variables, API keys, database, wallet, or account setup. Fonts and icons are bundled locally. The app is not publicly deployed.
-
-## Mobile app (React Native)
-
-The same workflow runs as a native iOS and Android app built with Expo in `mobile/`. It imports `src/lib/costs.ts` and `src/lib/agreement.ts` directly, so the arithmetic, canonical JSON, hashing and signatures are identical to the web app and covered by the same tests.
+The native app uses Expo and the same invoice/signature domain:
 
 ```sh
 cd mobile
 npm install
-npx expo start
+npx expo start --lan
 ```
 
-Scan the QR code with Expo Go, or press `i` or `a` for a simulator. No native build is required. Hermes has no `crypto.subtle`, so the app installs a small WebCrypto-compatible shim (`mobile/src/crypto/subtle-shim.ts`) over `@noble/curves` for ECDSA P-256 and `@noble/hashes` for SHA-256. Records signed in a browser verify on the phone and vice versa; `npm run crypto-check` in `mobile/` proves this against Node's WebCrypto in both directions, including tamper detection. `npm run typecheck` type-checks the app and scripts.
+Open the QR code with compatible Expo Go on two phones connected to the same network. Each person enters their own business name; no role switch is needed. See [the two-phone walkthrough](docs/DEMO.md). These are separate workspaces. Records are exchanged manually through the share sheet or clipboard, not synchronized by a messaging server.
 
-Differences from the web app: both demo roles run on one device (there is no tab-to-tab sync), **Share signed record** opens the system share sheet with the JSON file, **Copy record as JSON** puts it on the clipboard, the verifier reads a file through the document picker or pasted text, and there is no print layout.
+## Working features
 
-## Try the complete workflow
+- Create and keep multiple invoices, filter issued/received records, and import invoices from another business. Up to 50 goods/service line items per invoice; quantities support three decimal places, prices support six. Integer USDC arithmetic rejects unsupported precision instead of silently rounding it.
+- Sign invoices with ECDSA P-256 and hash their canonical contents with SHA-256. The customer independently signs an acknowledgement of both the exact invoice and the issuer's signature. Imports verify signatures and reject conflicting copies of a saved invoice.
+- Share AES-256-GCM encrypted files with a fresh random key and nonce. The decryption key is separate from the file. Browser WebCrypto and Expo Crypto use the same format. Plain signed JSON import is also supported; the web has an explicit unencrypted export option.
+- Create Solana Pay transfer requests with the exact amount, recipient and native USDC mint. The wallet performs review and authorization. Select mainnet in the wallet; the standard transfer URI does not enforce the wallet's cluster.
+- Save a public receiving wallet address. Wallet funding explains direct USDC transfers and links to MoonPay, Banxa, Stripe and Transak information, including material regional/business restrictions.
+- Keep profile and invoice records across app restarts in browser localStorage or the native app's private document directory. Records are verified when loaded. Signing keys remain session-only and never appear in exports.
 
-1. The app opens in **Chat**. Read Amira's request for the full €6,000, then tap **Review payment options** to open **Finance**. The sample bank route can leave her €35 short.
-2. Compare **Bank wire**, **Specialist transfer** and **USDC route**. Select **Specialist transfer** and choose **Buyer · budget for full invoice**. Bottom navigation on phones and a rail on desktop let you return to Chat without losing the decision.
-3. Expand **Where every dollar goes**. The buyer budgets **CA$9,065.04–9,080.12**, compared with **CA$9,292.09–9,322.87** for the sample bank route under the same fee responsibility. The upper-estimate difference is **CA$242.75**. These are synthetic arithmetic results, not real provider savings.
-4. Optionally explore a +5% FX scenario. This raises the modeled specialist outlay to **CA$9,533.73**. Scenarios never alter the signed baseline quote.
-5. **Review agreement**, acknowledge the estimates, and **Sign as Bilal**.
-6. **Review as Amira**, acknowledge separately, and **Sign as Amira**. Or open the other party in a tab in the same browser, then sign there. Both tabs synchronize locally.
-7. **Download signed record**. Open **Verify or test a change**, upload the JSON, then **Test a changed amount**. The modified copy fails; the original still verifies.
+## Payment and fee model
 
-Use the invoice edit control to change quantity, unit price, sale proceeds, other costs and due date. The sample fee bands require an invoice of at least €35. **Revise terms** starts a new draft and discards the previous signatures. Download a sealed record before revising or resetting if you want to preserve it.
+Invoices are denominated and requested entirely in USDC. The supplier receives the invoiced USDC amount when the requested transfer executes; gas is paid separately in SOL. SANAD adds no invoice-payment or funding charge. No EUR cash-out, CAD conversion, fee-responsibility slider or synthetic provider price is added to the invoice.
 
-## Real versus simulated
+The blockchain is **Solana mainnet-beta**, with Circle's native USDC mint `EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v`. Every invoice/payment screen identifies USDC and Solana. [Circle contract addresses](https://developers.circle.com/stablecoins/usdc-contract-addresses).
 
-| Working | Simulated / not claimed |
-| --- | --- |
-| Cost ranges, fee allocation, margin calculations, ±10% FX sensitivity | Fictional providers, rates, fee bands, delivery estimates, invoice and participants |
-| Three-route comparison including the complete modeled USDC path | No wallet, token execution, live USDC quote or confirmed payout availability |
-| In-memory conversation and local same-browser tab synchronization | No remote messaging service or production end-to-end encryption |
-| SHA-256 canonical content hash and ECDSA P-256 signatures | No verified human or company identities; no legal enforceability claim |
-| Complete signed JSON export, import checks, printable record, alteration detection | No trusted timestamp authority, identity certificate, bank connection or funds movement |
+Solana's base fee is **0.000005 SOL per signature**, plus any priority fee. A new recipient token account may need an additional refundable SOL account deposit. The dollar value varies; the wallet is responsible for showing the current transaction cost. Existing exchanges may charge withdrawal fees. [Solana fees](https://solana.com/docs/core/fees).
 
-No analytics or third-party runtime requests. Messages and private keys live only in memory. Closing all demo tabs clears the session; another open tab can reshare its current state after a refresh. Exports contain deal data and public keys, never private keys. Both roles run on one device by default. This proves integrity against the included keys; an entirely replaced file with new keys requires an independent trusted record to detect.
+Third-party purchase fees and conversion spreads apply when acquiring USDC through an eligible provider. No executable quote or provider integration is claimed. Canadian B2B eligibility cannot be assumed: Banxa restricts Canadian USDC/Solana coverage, MoonPay's Canadian Interac excludes business bank accounts, and Stripe's embedded onramp is US/EU only. See [verified provider research](docs/PAYMENTS-RESEARCH.md).
 
-## Small architecture
+## Security and implementation boundaries
 
-- `src/App.tsx`: separate Chat and Finance screens sharing one workflow, React state, native dialogs, local BroadcastChannel synchronization.
-- `src/lib/costs.ts`: explicit input validation and deterministic cost arithmetic.
-- `src/lib/agreement.ts`: canonical JSON, non-extractable private keys, signing, strict verification, and merge of concurrent signatures to identical terms.
-- `src/styles.css`: responsive interface, print layout and reduced-motion handling.
-- `tests/`: calculation, validation, signing, tampering and concurrent-merge tests.
-- `scripts/browser-check.cjs`: browser acceptance test for the complete journey.
-- `mobile/`: Expo React Native app. `src/state/useDeal.ts` holds the shared workflow state, `src/screens/` the Chat and Finance screens, `src/modals/` the guide, sources, invoice editor, verifier and USDC sheets, and `src/crypto/subtle-shim.ts` the WebCrypto shim for Hermes.
+The interesting technical mechanism is a portable, encrypted, mutually signed invoice. Changing the amount, line items, business names, receiving wallet, blockchain or mint invalidates the signed record. A customer's acknowledgement also binds the issuer's exact signature, and previously saved records pin their original content and signatures.
 
-Same-party conflicting signatures are rejected. Asynchronous agreement work is invalidated on reset or revision. Incoming quotes are read from the signed snapshot. Changes to a signed invoice or calculated costs cannot reuse the previous signatures.
+AES-256-GCM protects **shared files**, not the whole app. Local invoice storage and copied plaintext remain unencrypted; Solana transactions and addresses are public. There is no messaging E2EE, authenticated business onboarding, secure device enrollment, hardware-backed signing, permanent signing identity or key recovery. Names and wallet ownership are self-declared; confirm a partner and their record fingerprint independently. [Privacy implementation](docs/PRIVACY.md).
 
-## Cost model
+There is no connected wallet signer, live balance, approved onramp checkout, remote chat service, RPC payment observer or paid-status automation. Opening a payment request never marks an invoice paid. Those integrations need production credentials and transaction verification. The app does not custody funds or send money itself.
 
-Reference principal = invoice EUR × reference CAD/EUR rate. Markup = customer-rate principal minus reference principal. Buyer outlay = customer-rate principal + transfer fee + downstream reserve when the buyer covers it. Supplier receipt = invoice minus the fee range when the supplier covers it. Margin = expected sales minus other costs minus outlay. Both customer and reference rates shift in an FX scenario; fixed CAD transfer fees stay fixed. Amounts round at monetary boundaries to cents.
+## Verify
 
-Fee bands are assumptions, not confidence intervals. Buyer coverage targets full receipt, but does not guarantee a provider can deliver it. Final executable rates and charges must be confirmed outside this prototype. There is no prediction of FX direction, no hedging product and no Sharia-certification claim.
+```sh
+npm run build
+npm test
+node scripts/business-browser-check.cjs
+cd mobile
+npm run typecheck
+npm run crypto-check
+npx expo export --platform android --output-dir dist
+```
 
-The USDC comparison models **CAD → USDC → EUR**. USDC follows the US dollar; it does not remove the CAD funding and EUR cash-out conversions in this example. Small businesses also need partner providers for entry and exit. [Circle's USDC access FAQ](https://www.circle.com/usdc)
+The browser script expects the local Vite server at port 5173, `playwright-core`, and installed Chrome. It accepts `SANAD_URL`, `PLAYWRIGHT_MODULE`, and `CHROMIUM_PATH` overrides. Results go to `test-results/`, captures to `.impeccable/review/`. [Validation details](docs/VALIDATION.md).
 
-The synthetic USDC assumptions include both conversion spreads, a funding charge, a network-fee budget and downstream fees. Under buyer coverage, its modeled outlay is **CA$9,153.45–9,164.12**, versus **CA$9,065.04–9,080.12** for the specialist. USDC therefore costs more in this scenario. These are authored inputs, not provider quotes or evidence of a usable payout route in Tunisia. The same agreement and verification workflow works with any of the three choices.
+Active architecture: `src/App.tsx` and `src/styles.css` own the web surface; `mobile/App.tsx`, `mobile/src/state/useBusiness.ts` and `mobile/src/screens/BusinessScreens.tsx` own the native surface; `src/lib/business.ts` owns invoices and signatures; `src/lib/envelope.ts` and `mobile/src/crypto/envelope.ts` own encrypted sharing; `src/lib/funding.ts` holds researched provider links.
 
-## Verification performed
-
-On 5 September 2026:
-
-- **32/32 automated tests passed.** Cost module: 100% lines, branches and functions. Agreement module: 99.36% lines, 85.71% branches and 100% functions. These metrics cover the two domain modules, not React UI coverage.
-- Production TypeScript/Vite build passed. JavaScript is approximately **80.22 KB gzipped**.
-- Chromium acceptance passed all **23 recorded checks**, including the full workflow at **1440 × 1100** and **390 × 844**, plus layout checks at **320 × 740** and **844 × 390**. Checks include separate screens, navigation and state retention, USDC cost decomposition, mobile USDC signing and export/import, fee allocation, FX scenarios, consent, same-tab and two-tab signing, alteration detection, revision and reset.
-- No uncaught browser errors, horizontal overflow or third-party runtime requests in the tested journeys.
-
-These are browser-emulated viewport checks, not tests on physical phones.
-
-Run browser acceptance with a local preview running and Playwright installed (`npm install --no-save playwright`, then `npx playwright install chromium`). The script accepts `PLAYWRIGHT_MODULE`, `CHROMIUM_PATH`, and `SANAD_URL` overrides for bundled runtimes. Run `node scripts/browser-check.cjs`. Output goes to `test-results/`; screenshots go to `.impeccable/review/`.
-
-## Present and continue
-
-- [90-second demo and judge Q&A](docs/DEMO.md)
-- [Product critique, research and rubric mapping](docs/DECISION.md)
-- [Interface system](DESIGN.md)
-- [Validation notes](docs/VALIDATION.md)
-
-The first post-hackathon step is five importer interviews using actual completed invoices. No customer validation, usage, revenue or real savings is claimed. Validate whether this shared cost decision changes behavior before adding infrastructure.
+The earlier cost-comparison modules, tests, mobile screens and browser scripts remain as legacy source, disconnected from the active interface. Their synthetic bank/EUR assumptions do not describe the new USDC invoice flow. `src/lib/agreement.ts` still supplies canonical JSON and hash helpers; new invoice signatures use the business module.

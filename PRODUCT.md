@@ -4,41 +4,28 @@
 
 ## Platform
 
-mobile-first web
+Expo iOS/Android app and mobile-first React web app.
 
-## Stack
+## Users and purpose
 
-Delegated by the user's explicit instruction to select and build the entire lean MVP. React, TypeScript and Vite; static browser application, no backend or paid API.
+Businesses selling goods or services to other businesses. SANAD creates clear USDC invoices, records independent agreement to the same terms, and shares those records with encryption. There is no required product category or fictional participant.
 
-## Users
+## Current user direction
 
-Small importers who negotiate with overseas suppliers in messaging apps. Bilal in Montréal and Amira in Sfax are fictional demo personas, not interviewed customers.
+Invoice creation is a first-class feature. Payments and wallet balances are crypto-only; external providers may convert fiat into USDC before funding. All invoices settle in native USDC on Solana mainnet. The provider's purchase charges are separated from the small but nonzero SOL network cost. Do not add synthetic cash-out or bank-transfer routes.
 
-## Product Purpose
+## Operating context
 
-SANAD turns one supplier invoice in a conversation into a reviewed, mutually signed cost agreement. Reveal the full payer cost, possible recipient deductions, and who covers them before either party agrees.
+One self-declared business profile per device. Invoices and Wallet are the main destinations; creation and detail are focused invoice screens. Real empty states replace seeded conversations and persona controls. Two independent Expo phones exchange encrypted files and separate keys via system sharing, then return signed acknowledgements. No automatic remote sync is currently implemented.
 
-## Positioning
+## Implemented technical mechanism
 
-The useful unit is an agreed payment decision: a cost comparison and fee allocation that both parties can verify later. Customer demand and willingness to pay remain unvalidated.
+Canonical invoice JSON with SHA-256 content fingerprint, ECDSA P-256 issuer signature, and separate customer signature binding the exact issuer signature. The network, mint, wallet and amount are signed. Imported versions must match previously saved content and signing keys. AES-256-GCM file encryption uses fresh keys and nonces, authenticates metadata, and keeps the decryption key outside the shared file.
 
-## Operating Context
+## Boundaries
 
-Hackathon Challenge 02: international transaction cost visibility. One workflow that works on a phone and remains easy to demonstrate on a laptop. Chat opens first; its invoice opens a separate Finance screen. Bottom navigation on smaller screens becomes a rail on desktop, with the two screens kept separate at every width. Preserve the team's integrated messaging and privacy direction without operating payment rails.
+Local records persist without application-level encryption at rest. Private signing keys stay in session memory; they are not persistent verified business identities. Public blockchain data remains public. Names and wallet ownership are not authenticated. Wallet links request payments but never claim settlement; approved onramp checkout, balance feeds, backend chat and settlement monitoring are not connected. Provider restrictions and current fees must be checked with that provider.
 
-## Capabilities and Constraints
+## Visual direction
 
-Synthetic invoice and three provider-route quotes, real arithmetic, exchange-rate stress scenarios (not predictions), browser-generated signatures, portable evidence and tamper detection. The USDC comparison models CAD funding, transfer and EUR cash-out, including both conversion spreads and modeled fees. A USD peg does not avoid CAD/EUR conversion; no real quote or payout availability is claimed. No movement of money, wallet, claims of verified identities, legal enforceability, provider safety, zero knowledge or Sharia certification. No analytics or third-party runtime requests. No persistence of messages or private keys. Separate demo roles clearly labeled.
-
-## Evidence on Hand
-
-User supplied message (8), message (9), SANAD build document and MuslimHacks judging rubric. Existing research/international-trade-hackathon-ideas.md is context, not independently verified evidence. No customer interviews or real quotes supplied.
-
-## Product Principles
-
-- The signed object must capture a useful cost decision.
-- Show unknown charges as ranges, never as a fake precise quote.
-- Label assumptions and synthetic inputs at the decision point.
-- Mock infrastructure; implement the core mechanism.
-- Give Chat and Finance one purpose per screen while preserving shared deal state.
-- Compare USDC on full buyer outlay and supplier receipt, never network fees alone.
+Preserve the established porcelain, plum, lilac and mint identity, bilingual SANAD / سند mark, Lora/Manrope type and soft Mashrabiya daylight. The interface serves invoice work rather than demonstrating personas. Documented historical Chat/Finance compositions are superseded by the B2B invoice flow authorized on 6 September 2026.

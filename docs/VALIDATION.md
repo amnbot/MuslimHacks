@@ -1,23 +1,18 @@
-# Validation and finish review
+# Validation — B2B USDC invoices
 
-28 domain tests passed on 5 September 2026. Cost calculation coverage: lines 100%, branches 100%, functions 100%. Agreement coverage: lines 99.36%, branches 85.71%, functions 100%. UI is not included in those percentages. Node 22 and Chromium were used.
+Validation date: 6 September 2026. This replaces the earlier cost-comparison validation as the current app's record.
 
-Browser acceptance covered sequential two-tab consent, same-tab role switching, receipt/fee/rate calculations, exports, imports, altered copies, revision, edited invoices and reset. Screen widths 1440 and 390 pixels were checked. No uncaught errors or external runtime requests occurred. Tests deliberately check that an FX scenario does not silently change the snapshot's baseline rate.
+- Production TypeScript/Vite build passed.
+- All 51 automated tests passed, including 13 new business-invoice tests and 6 encrypted-envelope tests. Legacy cost/agreement tests remain for the preserved source modules.
+- Native app and scripts TypeScript checks passed.
+- `mobile/npm run crypto-check` passed 12 Node-signed and 12 Expo-shim-signed agreement records in both runtimes, including tampering detection. The new business tests separately verify browser/shim invoice-signature interoperability.
+- Android and iOS Expo exports bundled successfully to `mobile/dist/` and `mobile/dist-ios/`. This establishes bundle compatibility, not physical-device behavior.
+- All 13 checks in `scripts/business-browser-check.cjs` passed: separate issuer/customer browser contexts, multi-line invoice creation, exact USDC amounts, invalid-address rejection, encrypted download, wrong-key rejection, independent acknowledgement, encrypted return/merge, tamper rejection, reload persistence, wallet address storage and provider disclosure. Widths 320, 390, 768, 1000 and 1440 had no horizontal overflow in the checked surfaces. No uncaught browser errors or third-party runtime requests occurred. Results are in `test-results/business-browser.json`.
 
-The final targeted browser check also passed simultaneous signing with deliberately delayed real WebCrypto operations. Both tabs converged on two valid signatures. Resetting from the other tab during signing prevented the discarded agreement from returning. A changed invoice with recomputed arithmetic failed the original fingerprint; the unchanged record still verified. Results are in test-results/concurrency-check.json.
+Security tests also cover malformed imports, unsupported chain/mint, canonical keys, timestamp/signature/content changes, substituted issuer keys, customer acknowledgement binding, unsafe decimal amounts, plaintext/secret exclusion from encrypted exports, altered ciphertext/IV/tag/metadata, maximum envelope bounds and independent Node AES-GCM interoperability.
 
-The integration review found and fixed concurrent signature replacement, quote assumptions being read from the wrong record, discarded drafts being resurrected by pending asynchronous operations, and buyer outlay labeled as the current participant's outlay.
+Physical Expo devices, native AES execution, system share sheets, wallet handoff and iOS keyboard behavior have not been exercised on hardware here. Follow the two-phone walkthrough for those checks. There is no connected checkout, live blockchain observer, payment execution or authenticated account service to test. No production security certification is claimed.
 
-## Finish review
+The web design detector was run once; it reported advisory color/type differences against the previous Chat/Finance design documentation. The B2B surface preserves the established visual identity. Native code is outside that detector's scope.
 
-The independent design reviewer was dispatched with source and desktop/mobile captures but stopped at an account usage limit. The author substituted the skill's degraded review; this is not an independent visual certification.
-
-Disposition: ship at prototype scope after the listed fixes.
-
-- **Persistence:** PRODUCT.md and the direction contract exist. The seed key survives the production build. DESIGN.md records the resulting interface.
-- **Fidelity:** forest rail, paper work surfaces, Manrope interface, Lora shipment title and conversation/cost composition match the direction. Mobile prioritizes the decision and places the conversation beneath it, an adaptation for limited space.
-- **Ceiling:** no image composition was promised; there are no shipping raster assets. A single seal reveal uses a clip transition and honors reduced-motion settings.
-- **Material fixes:** small decision copy was enlarged; verbose quote metadata was shortened and separated correctly; misleading absolute integrity wording was narrowed; mobile now reaches the cost decision first. The deterministic source checks and second visual pass verified these changes. Some metadata remains compact; comprehensive accessibility certification was not performed.
-- **Keep:** the recipient shortfall, explicit fee owner, and one mutually signed cost snapshot stay central.
-
-Limitations: in-memory local demo, synthetic inputs, fictional roles, no authenticated remote participants, no guarantee of fee bounds or receipt amount, and no production security or legal certification. Public deployment has not been performed.
+Independent finish review: **ship for reviewed web scope**. The sole material finding, unnamed web dialogs, was fixed with unique heading IDs and `aria-labelledby`; a Chromium accessible-name assertion passed. The reviewer inspected desktop and mobile web captures, not native devices. This is not native visual certification.
