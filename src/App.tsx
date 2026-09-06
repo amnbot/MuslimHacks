@@ -415,6 +415,8 @@ function ThreadView({ workspace }: { workspace: Workspace }) {
       <button className="icon-button" aria-label="Compare payment routes" onClick={() => workspace.setOverlay('routes')}><Scale size={19} /></button>
     </header>
 
+    <ErrorBanner error={workspace.error} />
+
     <div className="timeline">
       <p className="timeline-note">{thread.subject} · synthetic demo conversation</p>
       {thread.messages.map((message) => <ThreadMessage key={message.id} message={message} thread={thread} workspace={workspace} />)}
@@ -708,11 +710,11 @@ function InvoiceDetailPage({ workspace }: { workspace: Workspace }) {
     <section className="payment-strip">
       <h2>Payment</h2>
       <NetworkTag network={invoice.payment.network} />
-      <p>Pay {formatUsdc(invoice.totalMicros)} USDC to {invoice.issuer}. SANAD charges no payment fee.</p>
+      <p>Invoice total: {formatUsdc(invoice.totalMicros)} USDC to {invoice.issuer}. SANAD charges no payment fee.</p>
       <p className="fine">{NETWORK_FEE_NOTE}</p>
       {isCustomer && <>
         <button className="primary" disabled={workspace.busy || workspace.paying} onClick={() => void workspace.pay(invoice.payment.recipientWallet, workspace.activeThread?.id ?? null)}>
-          <ArrowUpRight size={17} /> {workspace.paying ? 'Confirming on devnet…' : 'Pay from my devnet wallet'}
+          <ArrowUpRight size={17} /> {workspace.paying ? 'Confirming on devnet…' : `Pay ${formatUsdc(DEMO_SETTLEMENT_MICROS)} USDC on devnet`}
         </button>
         <p className="fine">{DEMO_SETTLEMENT_NOTE} Nothing is marked paid until the network confirms it.</p>
       </>}

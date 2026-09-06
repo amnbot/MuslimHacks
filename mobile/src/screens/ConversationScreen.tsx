@@ -7,6 +7,7 @@ import {
 import { colors, fonts } from '../theme';
 import { T } from '../components/T';
 import { IconButton, PrimaryButton } from '../components/Button';
+import { ErrorNote } from './BusinessScreens';
 import {
   DEMO_SETTLEMENT_MICROS, DEMO_SETTLEMENT_NOTE, PARTICIPANTS, PROFILES, calculateCosts, corridorOf, counterpartOf,
   explorerUrl, money, recommendRoute, roleInThread,
@@ -224,6 +225,8 @@ export function ConversationScreen({ workspace }: { workspace: Workspace }) {
         </View>
         <IconButton icon={Scale} label="Compare payment routes" size={19} onPress={() => workspace.openModal('routes')} />
       </View>
+
+      {!!workspace.error && <View style={{ marginHorizontal: 12, marginTop: 10 }}><ErrorNote error={workspace.error} /></View>}
 
       <ScrollView
         ref={scroll}

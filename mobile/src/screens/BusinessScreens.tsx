@@ -5,7 +5,7 @@ import { buildSolanaPayUri, CLUSTER_LABEL, CLUSTER_SHORT_LABEL, formatUsdc, invo
 import { NETWORK_FEE_NOTE } from '../../../src/lib/funding';
 import { isEncryptedEnvelope } from '../crypto/envelope';
 import {
-  addressExplorerUrl, BASE_FEE_LAMPORTS, corridorOf, DEMO_SETTLEMENT_NOTE, DEVNET_NOTICE,
+  addressExplorerUrl, BASE_FEE_LAMPORTS, corridorOf, DEMO_SETTLEMENT_MICROS, DEMO_SETTLEMENT_NOTE, DEVNET_NOTICE,
   FAUCET_SOL_URL, FAUCET_USDC_URL, LAMPORTS_PER_SOL, PARTICIPANTS, PROFILE_IDS, PROFILES,
   TOKEN_ACCOUNT_RENT_LAMPORTS,
 } from '../shared';
@@ -193,10 +193,10 @@ export function InvoiceDetail({ business }: { business: Business }) {
     <View style={s.paymentSection}>
       <T serif size={23}>Payment</T>
       <NetworkLabel invoice={invoice} />
-      <T size={14} color={colors.muted}>Pay {formatUsdc(invoice.totalMicros)} USDC to {invoice.issuer}. SANAD charges no payment fee.</T>
+      <T size={14} color={colors.muted}>Invoice total: {formatUsdc(invoice.totalMicros)} USDC to {invoice.issuer}. SANAD charges no payment fee.</T>
       <T size={12} color={colors.muted}>{NETWORK_FEE_NOTE}</T>
       {isCustomer && <>
-        <PrimaryButton label={business.paying ? 'Confirming on devnet…' : 'Pay from my devnet wallet'} icon={ArrowUpRight} onPress={() => void business.payInvoice()} disabled={business.busy || business.paying} />
+        <PrimaryButton label={business.paying ? 'Confirming on devnet…' : `Pay ${formatUsdc(DEMO_SETTLEMENT_MICROS)} USDC on devnet`} icon={ArrowUpRight} onPress={() => void business.payInvoice()} disabled={business.busy || business.paying} />
         <T size={12} color={colors.muted}>{DEMO_SETTLEMENT_NOTE}</T>
         <T size={12} color={colors.muted}>Nothing is marked paid until the network confirms the transaction.</T>
       </>}
