@@ -24,6 +24,20 @@ npm run test:coverage
 
 The production build is `dist/`, ready for any static HTTPS host. No backend, environment variables, API keys, database, wallet, or account setup. Fonts and icons are bundled locally. The app is not publicly deployed.
 
+## Mobile app (React Native)
+
+The same workflow runs as a native iOS and Android app built with Expo in `mobile/`. It imports `src/lib/costs.ts` and `src/lib/agreement.ts` directly, so the arithmetic, canonical JSON, hashing and signatures are identical to the web app and covered by the same tests.
+
+```sh
+cd mobile
+npm install
+npx expo start
+```
+
+Scan the QR code with Expo Go, or press `i` or `a` for a simulator. No native build is required. Hermes has no `crypto.subtle`, so the app installs a small WebCrypto-compatible shim (`mobile/src/crypto/subtle-shim.ts`) over `@noble/curves` for ECDSA P-256 and `@noble/hashes` for SHA-256. Records signed in a browser verify on the phone and vice versa; `npm run crypto-check` in `mobile/` proves this against Node's WebCrypto in both directions, including tamper detection. `npm run typecheck` type-checks the app and scripts.
+
+Differences from the web app: both demo roles run on one device (there is no tab-to-tab sync), **Share signed record** opens the system share sheet with the JSON file, **Copy record as JSON** puts it on the clipboard, the verifier reads a file through the document picker or pasted text, and there is no print layout.
+
 ## Try the complete workflow
 
 1. The app opens in **Chat**. Read Amira's request for the full €6,000, then tap **Review payment options** to open **Finance**. The sample bank route can leave her €35 short.
@@ -56,6 +70,7 @@ No analytics or third-party runtime requests. Messages and private keys live onl
 - `src/styles.css`: responsive interface, print layout and reduced-motion handling.
 - `tests/`: calculation, validation, signing, tampering and concurrent-merge tests.
 - `scripts/browser-check.cjs`: browser acceptance test for the complete journey.
+- `mobile/`: Expo React Native app. `src/state/useDeal.ts` holds the shared workflow state, `src/screens/` the Chat and Finance screens, `src/modals/` the guide, sources, invoice editor, verifier and USDC sheets, and `src/crypto/subtle-shim.ts` the WebCrypto shim for Hermes.
 
 Same-party conflicting signatures are rejected. Asynchronous agreement work is invalidated on reset or revision. Incoming quotes are read from the signed snapshot. Changes to a signed invoice or calculated costs cannot reuse the previous signatures.
 

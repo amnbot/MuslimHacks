@@ -1,0 +1,8 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    "types": ["node"]
+  },
+  "include": ["./*.ts", "../src/crypto/*.ts", "../../src/lib/*.ts"]
+}

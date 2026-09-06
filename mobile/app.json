@@ -1,0 +1,34 @@
+{
+  "expo": {
+    "name": "SANAD",
+    "slug": "sanad",
+    "version": "1.0.0",
+    "scheme": "sanad",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "backgroundColor": "#f5f5ef",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.sanad.demo"
+    },
+    "android": {
+      "package": "com.sanad.demo",
+      "softwareKeyboardLayoutMode": "resize",
+      "adaptiveIcon": {
+        "backgroundColor": "#f5f5ef",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-sharing",
+      "expo-font"
+    ]
+  }
+}

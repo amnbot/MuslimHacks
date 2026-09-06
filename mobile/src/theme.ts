@@ -1,0 +1,71 @@
+import { Platform } from 'react-native';
+
+// Mirrors DESIGN.md: forest for actions, ink for values, paper surfaces on a canvas ground.
+export const colors = {
+  forest: '#183e38',
+  forestHover: '#2b594a',
+  ink: '#263e38',
+  canvas: '#f5f5ef',
+  paper: '#fffefa',
+  muted: '#5f6f63',
+  line: '#dde3d5',
+  warning: '#fff0df',
+  warningText: '#81502f',
+  warningSub: '#825d3d',
+  pale: '#eef2e7',
+  danger: '#963e28',
+  dangerBg: '#fff0e4',
+  topbar: '#fafbf5',
+  navBg: '#fcfdf7',
+  chip: '#e7eedb',
+  chipText: '#244837',
+  tint: '#e3ecd3',
+  tintText: '#516b3f',
+  green: '#4c713d',
+  greenDeep: '#294b36',
+  greenText: '#5b744a',
+  greenSoft: '#f0f5e6',
+  selectedBorder: '#54743f',
+  bubbleIn: '#e9ede2',
+  bubbleOut: '#dce8ce',
+  avatarBg: '#e4e8d1',
+  avatarText: '#536643',
+  resolvedBg: '#eaf1de',
+  resolvedText: '#466138',
+  sealBg: '#e7f0da',
+  sealText: '#456b34',
+  stressBg: '#f0f4e7',
+  hashBg: '#f0f5e7',
+  hashText: '#547344',
+  secondaryBg: '#f5f8ee',
+  secondaryBorder: '#c8d8b6',
+  secondaryText: '#406037',
+  inputBg: '#f6faef',
+  inputBorder: '#c9d9b7',
+  toastBg: '#264f41',
+  toastText: '#f6f8ee',
+  accent: '#af7045',
+  estimateBg: '#eee9d4',
+  estimateText: '#745e2d',
+  statusBg: '#eee8d5',
+  statusText: '#806c36',
+  passBg: '#e7f2d9',
+  passText: '#3d6c2c',
+  failBg: '#fff0e4',
+  failText: '#8a5030',
+};
+
+export const fonts = {
+  sans: 'Manrope_400Regular',
+  sansMedium: 'Manrope_500Medium',
+  sansSemi: 'Manrope_600SemiBold',
+  sansBold: 'Manrope_700Bold',
+  serif: 'Lora_400Regular',
+  serifMedium: 'Lora_500Medium',
+  mono: Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' }) as string,
+};
+
+export const radius = { control: 9, panel: 12, pill: 6 };
+export const space = { xs: 4, s: 8, m: 16, l: 24 };
+export const NAV_HEIGHT = 72;
+export const TOPBAR_HEIGHT = 64;
