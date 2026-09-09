@@ -267,6 +267,45 @@ export function bearerSideOf(role: Party): FeeBearer {
   return role === 'seller' ? 'supplier' : 'buyer';
 }
 
+// --- post-payment shipping mockup -------------------------------------------
+//
+// A purely illustrative "what happens after payment" screen: browse certified
+// brokers (unimplemented placeholder) or a peer traveller ("rider") already
+// making the trip. Nothing here reaches a server or moves anything real — it
+// is mock data, filtered client-side by the corridor the payment was on.
+
+export type Rider = {
+  id: string;
+  name: string;
+  initials: string;
+  rating: number;
+  trips: number;
+  fromCountry: string;
+  toCountry: string;
+  departure: string;
+  arrival: string;
+  maxKg: number;
+  pricePerKg: number;
+  acceptedItems: string[];
+};
+
+export const ITEM_CATEGORIES = ['Food & spices', 'Cosmetics & oils', 'Textiles', 'Small electronics', 'Documents', 'Other goods'] as const;
+
+export const RIDERS: Rider[] = [
+  { id: 'r1', name: 'Youssef Trabelsi', initials: 'YT', rating: 4.9, trips: 32, fromCountry: 'Tunisia', toCountry: 'Canada', departure: '14 Sep', arrival: '15 Sep', maxKg: 20, pricePerKg: 6, acceptedItems: ['Food & spices', 'Cosmetics & oils', 'Documents'] },
+  { id: 'r2', name: 'Salma Gharbi', initials: 'SG', rating: 4.7, trips: 18, fromCountry: 'Tunisia', toCountry: 'Canada', departure: '16 Sep', arrival: '17 Sep', maxKg: 15, pricePerKg: 7, acceptedItems: ['Food & spices', 'Textiles', 'Small electronics'] },
+  { id: 'r3', name: 'Karim Bouazizi', initials: 'KB', rating: 4.5, trips: 9, fromCountry: 'Tunisia', toCountry: 'Canada', departure: '20 Sep', arrival: '21 Sep', maxKg: 25, pricePerKg: 5, acceptedItems: ['Food & spices', 'Cosmetics & oils', 'Textiles', 'Documents'] },
+  { id: 'r4', name: 'Ines Mabrouk', initials: 'IM', rating: 5.0, trips: 41, fromCountry: 'Tunisia', toCountry: 'United Kingdom', departure: '13 Sep', arrival: '13 Sep', maxKg: 18, pricePerKg: 8, acceptedItems: ['Food & spices', 'Cosmetics & oils'] },
+  { id: 'r5', name: 'Nizar Chaabane', initials: 'NC', rating: 4.6, trips: 14, fromCountry: 'Tunisia', toCountry: 'United Kingdom', departure: '19 Sep', arrival: '19 Sep', maxKg: 22, pricePerKg: 6, acceptedItems: ['Food & spices', 'Textiles', 'Documents', 'Other goods'] },
+  { id: 'r6', name: 'Hamza Idrissi', initials: 'HI', rating: 4.8, trips: 27, fromCountry: 'Morocco', toCountry: 'Canada', departure: '15 Sep', arrival: '16 Sep', maxKg: 20, pricePerKg: 6, acceptedItems: ['Food & spices', 'Cosmetics & oils', 'Small electronics'] },
+  { id: 'r7', name: 'Fatima Zahra', initials: 'FZ', rating: 4.4, trips: 6, fromCountry: 'Morocco', toCountry: 'Canada', departure: '22 Sep', arrival: '23 Sep', maxKg: 12, pricePerKg: 7, acceptedItems: ['Food & spices', 'Documents'] },
+];
+
+/** Riders on the exact corridor a payment was made on. */
+export function ridersFor(fromCountry: string, toCountry: string): Rider[] {
+  return RIDERS.filter((rider) => rider.fromCountry === fromCountry && rider.toCountry === toCountry);
+}
+
 export function lastMessagePreview(thread: DemoThread): string {
   const last = thread.messages[thread.messages.length - 1];
   if (!last) return '';

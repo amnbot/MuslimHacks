@@ -20,6 +20,7 @@ import { ConversationList } from './src/screens/ConversationList';
 import { ConversationScreen } from './src/screens/ConversationScreen';
 import { RoutesSheet } from './src/screens/RoutesSheet';
 import { PaymentResultSheet } from './src/screens/PaymentResultSheet';
+import { ShippingScreen } from './src/screens/ShippingScreen';
 import { InvoiceList, CreateInvoice, InvoiceDetail, WalletScreen, BusinessSheets } from './src/screens/BusinessScreens';
 
 const TABS: { value: WorkspaceTab; label: string; icon: typeof FileText }[] = [
@@ -36,16 +37,22 @@ function Root() {
 
   useEffect(() => {
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (workspace.shipping) { workspace.closeShipping(); return true; }
       if (modal) { openModal(null); return true; }
       if (route !== 'list') { setRoute('list'); return true; }
       if (tab !== 'chats') { setTab('chats'); return true; }
       return false;
     });
     return () => subscription.remove();
-  }, [modal, route, tab]);
+  }, [modal, route, tab, workspace.shipping]);
 
   if (!fontsLoaded || !workspace.ready) {
     return <View style={styles.loading}><ActivityIndicator color={colors.forest} accessibilityLabel="Opening your workspace" /></View>;
+  }
+
+  // A dedicated full-screen mockup, entered from a confirmed payment.
+  if (workspace.shipping) {
+    return <ShippingScreen workspace={workspace} />;
   }
 
   const go = (next: WorkspaceTab) => { setTab(next); setRoute('list'); workspace.setError(''); };

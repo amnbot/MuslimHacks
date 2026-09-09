@@ -12,8 +12,8 @@ import {
 } from '../../../src/lib/business';
 import { decryptRecord, encryptRecord, isEncryptedEnvelope } from '../crypto/envelope';
 import {
-  DEMO_SETTLEMENT_MICROS, DEMO_THREADS, PROFILES, PaymentTimeoutError, calculateCosts, corridorOf,
-  getSolBalance, getUsdcBalance, payUsdc, recommendRoute, requestAirdrop, roleInThread,
+  DEMO_SETTLEMENT_MICROS, DEMO_THREADS, PARTICIPANTS, PROFILES, PaymentTimeoutError, calculateCosts,
+  corridorOf, getSolBalance, getUsdcBalance, payUsdc, recommendRoute, requestAirdrop, roleInThread,
   type DemoMessage, type DemoThread, type FeeBearer, type ProfileId,
 } from '../shared';
 
@@ -28,12 +28,16 @@ export type PaymentResult = {
   fromAddress: string;
   toLabel: string;
   toAddress: string;
+  fromCountry: string;
+  toCountry: string;
   signature: string | null;
   error: string | null;
   /** The recipient's live USDC balance, fetched right after confirmation. */
   recipientBalanceMicros: number | null;
   threadId: string | null;
 };
+
+export type ShippingContext = { fromCountry: string; toCountry: string };
 
 const MAX_FILE_BYTES = 300_000;
 const messageOf = (error: unknown) => error instanceof Error ? error.message : 'Something went wrong. Please try again.';
@@ -77,6 +81,7 @@ export function useWorkspace() {
   const [loadingBalances, setLoadingBalances] = useState(false);
   const [paying, setPaying] = useState(false);
   const [paymentResult, setPaymentResult] = useState<PaymentResult | null>(null);
+  const [shipping, setShipping] = useState<ShippingContext | null>(null);
 
   // Ephemeral demo signing keys, one per business name, for this app session only.
   const signers = useRef<Record<string, BusinessSigner>>({});
@@ -153,7 +158,7 @@ export function useWorkspace() {
   function switchProfile(next: ProfileId) {
     setProfileId(next);
     setTab('chats'); setRoute('list'); setActiveThreadId(null); setSelectedId(null);
-    setModal(null); setError(''); setBalances(null); setStress(0); setPaymentResult(null);
+    setModal(null); setError(''); setBalances(null); setStress(0); setPaymentResult(null); setShipping(null);
     setNotice(`Now viewing as ${PROFILES[next].personName}.`);
   }
 
@@ -387,13 +392,14 @@ export function useWorkspace() {
    * recipient's live balance, or failed with the actual error. The modal opens
    * immediately so the button tap is never followed by silence.
    */
-  async function runPayment(toAddress: string, toLabel: string, threadId: string | null) {
+  async function runPayment(toAddress: string, toLabel: string, toCountry: string, threadId: string | null) {
     if (paying) return;
     setPaying(true); setError('');
     setPaymentResult({
       status: 'pending', amountMicros: DEMO_SETTLEMENT_MICROS,
       fromLabel: profile.personName, fromAddress: profile.wallet.address,
-      toLabel, toAddress, signature: null, error: null, recipientBalanceMicros: null, threadId,
+      toLabel, toAddress, fromCountry: profile.country, toCountry,
+      signature: null, error: null, recipientBalanceMicros: null, threadId,
     });
     setModal('payment');
     try {
@@ -429,24 +435,35 @@ export function useWorkspace() {
   async function payThread(thread: DemoThread) {
     const recipient = PROFILES[thread.sellerId as ProfileId];
     if (!recipient) { setError('This supplier has no demo wallet. Use the Sfax Olive Co. conversation for a live payment.'); return; }
-    await runPayment(recipient.wallet.address, recipient.personName, thread.id);
+    await runPayment(recipient.wallet.address, recipient.personName, recipient.country, thread.id);
   }
 
   /** Pays the open invoice's signed recipient wallet, for the demo amount. */
   async function payInvoice() {
     if (!selected) return;
     const thread = threads.find((entry) => entry.invoice.id === selected.invoice.reference);
-    await runPayment(selected.invoice.payment.recipientWallet, selected.invoice.issuer, thread?.id ?? null);
+    const sellerCountry = thread ? PARTICIPANTS[thread.sellerId]?.country ?? 'their country' : 'their country';
+    await runPayment(selected.invoice.payment.recipientWallet, selected.invoice.issuer, sellerCountry, thread?.id ?? null);
   }
 
   function closePaymentModal() {
     setModal(null);
   }
 
+  /** Opens the post-payment "how would you like to receive it?" mockup as its own screen. */
+  function openShipping(context: ShippingContext) {
+    setModal(null);
+    setShipping(context);
+  }
+
+  function closeShipping() {
+    setShipping(null);
+  }
+
   function resetDemo() {
     setThreads(clone(DEMO_THREADS));
     setActiveThreadId(null); setSelectedId(null); setModal(null); setRoute('list'); setTab('chats');
-    setStress(0); setError(''); setBalances(null); setPaymentResult(null);
+    setStress(0); setError(''); setBalances(null); setPaymentResult(null); setShipping(null);
     setNotice('Seeded conversations restored. Ready for another walkthrough.');
   }
 
@@ -461,7 +478,7 @@ export function useWorkspace() {
     checkAlteredCopy, copy, openLink,
     importText, setImportText, importKey, setImportKey, encryptedExport,
     balances, loadingBalances, refreshBalances, requestSol, payThread, payInvoice, paying,
-    paymentResult, closePaymentModal,
+    paymentResult, closePaymentModal, shipping, openShipping, closeShipping,
   };
 }
 

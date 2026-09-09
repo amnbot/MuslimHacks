@@ -160,6 +160,57 @@ input[type=range]{min-height:44px;padding:0;border:0;background:transparent;acce
 .payment-recipient .text-button{color:#2f746b}
 .dialog-body>.payment-details{margin-top:0;margin-bottom:18px}
 .dialog-body .error-banner{margin-bottom:18px}
+.payment-next{display:flex;flex-direction:column;gap:10px}
+.payment-next>.primary{width:100%;justify-content:center}
+.payment-next .button-row{margin-top:0}
+.payment-next .text-button{align-self:center}
+
+/* Post-payment shipping mockup: a dedicated full-page takeover. Purely illustrative —
+   riders, ratings, dates and prices are all mock data with no backing functionality. */
+.shipping-screen{min-height:100dvh;background:var(--canvas,var(--paper));display:flex;flex-direction:column}
+.shipping-head{display:flex;align-items:center;gap:10px;padding:16px 14px;border-bottom:1px solid var(--line);background:var(--paper);position:sticky;top:0}
+.shipping-head strong{font-size:16px}
+.shipping-body{max-width:640px;width:100%;margin:0 auto;padding:28px 22px 60px}
+.shipping-body h1{font-size:26px;margin-top:4px}
+.shipping-body>p{margin-top:8px}
+.option-grid{display:flex;gap:16px;margin-top:32px}
+.option-card{flex:1;aspect-ratio:0.95;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:20px;border-radius:20px;border:1px solid var(--line);background:var(--paper);text-align:center}
+.option-card:hover{background:#faf6fc}
+.option-card.is-accent{border-color:#9b78df}
+.option-card strong{font-size:15px;color:var(--ink)}
+.option-card small{font-size:12px;color:var(--muted);line-height:1.5}
+.option-icon{width:64px;height:64px;border-radius:18px;display:grid;place-items:center}
+.option-icon-brokers{background:#efe8ff;color:#3f2f68}
+.option-icon-riders{background:#eaf8f3;color:#337c72}
+.rider-list{display:flex;flex-direction:column;gap:12px;margin-top:16px}
+.rider-card{display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:16px;border-radius:16px;border:1px solid var(--line);background:var(--paper)}
+.rider-card:hover{background:#faf6fc}
+.rider-card.is-static{cursor:default}
+.rider-card.is-static:hover{background:var(--paper)}
+.rider-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.rider-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.rider-top strong{font-size:15px}
+.rating-chip{display:inline-flex;align-items:center;gap:3px;background:#fdf3e0;color:#8a5f10;border-radius:999px;padding:2px 8px;font-size:11px;font-weight:600}
+.rider-price{color:#337c72}
+.item-row{display:flex;gap:6px;flex-wrap:wrap;margin-top:2px}
+.item-chip{background:#f5f1fa;color:#55756f;border-radius:999px;padding:3px 9px;font-size:10px}
+.empty-riders{display:flex;flex-direction:column;align-items:center;gap:10px;padding:50px 20px;color:var(--muted)}
+.stepper{display:flex;align-items:center;justify-content:center;gap:24px;margin-top:14px}
+.stepper strong{font-size:28px;min-width:70px;text-align:center;font-variant-numeric:tabular-nums}
+.item-grid{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.item-option{display:flex;align-items:center;gap:6px;padding:9px 14px;border-radius:10px;border:1px solid var(--line);background:#fffefa;font-size:12px}
+.item-option.is-chosen{border-color:#9b78df;background:#eaf8f3;color:#2f746b}
+.shipping-total{display:flex;justify-content:space-between;align-items:center;margin-top:26px;padding-top:16px;border-top:1px solid var(--line)}
+.shipping-total strong{font-size:20px}
+.shipping-body>button.primary{width:100%;margin-top:20px}
+.shipping-confirm{max-width:420px;margin:60px auto;padding:0 22px;text-align:center;display:flex;flex-direction:column;align-items:center}
+.confirm-seal{width:88px;height:88px;border-radius:50%;background:#eaf8f3;color:#2f746b;display:grid;place-items:center}
+.shipping-confirm h2{margin-top:20px;font-size:24px}
+.shipping-confirm>p{margin-top:8px}
+.confirm-summary{width:100%;margin-top:24px;padding:18px;border-radius:16px;background:var(--paper);border:1px solid var(--line);display:flex;flex-direction:column;gap:10px;text-align:left}
+.confirm-summary small{display:block;font-size:11px;color:var(--muted)}
+.confirm-summary strong{display:block;margin-top:2px;font-size:14px}
+.shipping-confirm>button.primary{width:100%;margin-top:26px}
 
 @media(max-width:600px){
   .tile-row{gap:10px}
@@ -168,4 +219,7 @@ input[type=range]{min-height:44px;padding:0;border:0;background:transparent;acce
   .route-pair{flex-direction:column;gap:8px}
   .balance-card>strong{font-size:34px}
   .thread-head{padding:8px 6px;gap:8px}
+  .option-grid{gap:10px}
+  .option-card{padding:14px}
+  .option-icon{width:52px;height:52px}
 }

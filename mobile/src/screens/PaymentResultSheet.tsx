@@ -1,5 +1,5 @@
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
-import { CheckCircle2, Copy, ExternalLink, TriangleAlert } from 'lucide-react-native';
+import { ArrowRight, CheckCircle2, Copy, ExternalLink, TriangleAlert } from 'lucide-react-native';
 import { colors } from '../theme';
 import { T } from '../components/T';
 import { PrimaryButton, SecondaryButton, TextButton } from '../components/Button';
@@ -87,14 +87,27 @@ export function PaymentResultSheet({ workspace }: { workspace: Workspace }) {
       )}
 
       <View style={s.actions}>
-        {result.status !== 'pending' && (
-          <SecondaryButton
-            label="Refresh my balance"
-            onPress={() => void workspace.refreshBalances()}
-            disabled={workspace.loadingBalances}
-          />
+        {result.status === 'confirmed' ? (
+          <>
+            <PrimaryButton
+              label="Choose next steps"
+              icon={ArrowRight}
+              fullWidth
+              // The goods travel the opposite way to the payment: from the seller's
+              // country (who received the USDC) to the buyer's country (who sent it).
+              onPress={() => workspace.openShipping({ fromCountry: result.toCountry, toCountry: result.fromCountry })}
+            />
+            <SecondaryButton label="Refresh my balance" onPress={() => void workspace.refreshBalances()} disabled={workspace.loadingBalances} />
+            <TextButton label="Close" center onPress={workspace.closePaymentModal} />
+          </>
+        ) : (
+          <>
+            {result.status === 'failed' && (
+              <SecondaryButton label="Refresh my balance" onPress={() => void workspace.refreshBalances()} disabled={workspace.loadingBalances} />
+            )}
+            <PrimaryButton label={result.status === 'pending' ? 'Waiting…' : 'Done'} onPress={workspace.closePaymentModal} disabled={result.status === 'pending'} />
+          </>
         )}
-        <PrimaryButton label={result.status === 'pending' ? 'Waiting…' : 'Done'} onPress={workspace.closePaymentModal} disabled={result.status === 'pending'} />
       </View>
       <T size={10} color={colors.muted} center style={{ marginTop: 4 }}>Solana devnet · test tokens have no financial value.</T>
     </View>

@@ -156,9 +156,41 @@ const WIDTHS = [320, 390, 768, 1000, 1440];
   assert.match(explorerHref, /cluster=devnet/);
   pass('a real explorer link is offered for the transaction');
 
+  // Post-payment mockup: "Choose next steps" opens a full-page takeover with two
+  // options — a no-op certified-brokers placeholder, and a mocked rider list filtered
+  // to the exact corridor the payment was on (Tunisia -> Canada).
+  await page.getByRole('button', { name: /Choose next steps/ }).click();
+  await page.getByRole('heading', { name: 'How would you like to receive it?' }).waitFor();
+  pass('"Choose next steps" opens the shipping mockup');
+
+  await page.getByRole('button', { name: 'Certified brokers' }).click();
+  await page.getByText('Certified broker directory — coming soon.').waitFor();
+  await page.getByRole('heading', { name: 'How would you like to receive it?' }).waitFor();
+  pass('the certified-brokers option is an intentional, acknowledged no-op');
+
+  await page.getByRole('button', { name: 'Find a rider' }).click();
+  const riderCards = await page.locator('.rider-card').count();
+  assert.equal(riderCards, 3, 'three mocked riders on the Tunisia -> Canada corridor');
+  pass('riders are filtered to the exact payment corridor');
+
+  await page.locator('.rider-card').first().click();
+  await page.getByText('How many kilograms?').waitFor();
+  assert.match(await page.locator('.stepper strong').innerText(), /^1 kg$/);
+  await page.getByRole('button', { name: 'More kilograms' }).click();
+  await page.getByRole('button', { name: 'More kilograms' }).click();
+  assert.match(await page.locator('.stepper strong').innerText(), /^3 kg$/);
+  pass('kilograms are adjustable up to the rider’s stated capacity');
+
+  await page.locator('.item-option').first().click();
   await page.getByRole('button', { name: 'Done' }).click();
-  await page.getByRole('heading', { name: 'Payment confirmed' }).waitFor({ state: 'hidden' });
-  pass('the payment modal closes on Done');
+  await page.getByRole('heading', { name: 'Rider notified' }).waitFor();
+  const confirmSummary = await page.locator('.confirm-summary').innerText();
+  assert.match(confirmSummary, /3kg/);
+  pass('selecting a rider ends the flow with a clear confirmation, no conversation needed');
+
+  await page.getByRole('button', { name: 'Back to conversations' }).click();
+  await page.getByRole('heading', { name: 'How would you like to receive it?' }).waitFor({ state: 'hidden' });
+  pass('leaving the shipping mockup returns to the app');
 
   // Devnet honesty: the wallet must name the network and disclaim value.
   await page.getByRole('button', { name: 'Wallet' }).first().click();

@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import {
-  ArrowLeft, ArrowRight, ArrowUpRight, Check, CheckCheck, ChevronRight, Copy, ExternalLink,
-  FileText, Fingerprint, FlaskConical, LockKeyhole, MessagesSquare, Plus, RefreshCw, Scale,
-  Send, ShieldCheck, Sparkles, Trash2, TriangleAlert, Wallet, X,
+  ArrowLeft, ArrowRight, ArrowUpRight, Check, CheckCheck, CheckCircle2, ChevronRight, Copy,
+  ExternalLink, FileText, Fingerprint, FlaskConical, LockKeyhole, MessagesSquare, Minus, Package,
+  Plane, Plus, RefreshCw, Scale, Send, ShieldCheck, Sparkles, Star, Trash2, TriangleAlert, Wallet, X,
 } from 'lucide-react';
 import {
   buildSolanaPayUri, CLUSTER_LABEL, CLUSTER_SHORT_LABEL, createBusinessSigner, createInvoice,
@@ -19,8 +19,8 @@ import {
 } from './lib/solana';
 import {
   corridorOf, counterpartOf, DEMO_SETTLEMENT_MICROS, DEMO_SETTLEMENT_NOTE, DEMO_THREADS,
-  DEVNET_NOTICE, lastMessagePreview, PARTICIPANTS, PROFILE_IDS, PROFILES, roleInThread, STAGE_LABEL,
-  type DemoMessage, type DemoThread, type ProfileId,
+  DEVNET_NOTICE, ITEM_CATEGORIES, lastMessagePreview, PARTICIPANTS, PROFILE_IDS, PROFILES,
+  ridersFor, roleInThread, STAGE_LABEL, type DemoMessage, type DemoThread, type ProfileId, type Rider,
 } from './lib/demo';
 import { markupPercent } from './lib/format';
 
@@ -35,12 +35,16 @@ type PaymentResult = {
   fromAddress: string;
   toLabel: string;
   toAddress: string;
+  fromCountry: string;
+  toCountry: string;
   signature: string | null;
   error: string | null;
   /** The recipient's live USDC balance, fetched right after confirmation. */
   recipientBalanceMicros: number | null;
   threadId: string | null;
 };
+
+type ShippingContext = { fromCountry: string; toCountry: string };
 
 const clone = <T,>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
 const clockTime = () => new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
@@ -69,6 +73,7 @@ function useWorkspace() {
   const [busy, setBusy] = useState(false);
   const [paying, setPaying] = useState(false);
   const [paymentResult, setPaymentResult] = useState<PaymentResult | null>(null);
+  const [shipping, setShipping] = useState<ShippingContext | null>(null);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [stress, setStress] = useState(0);
@@ -138,7 +143,8 @@ function useWorkspace() {
 
   function switchProfile(next: ProfileId) {
     setProfileId(next); setTab('chats'); setRoute('list'); setActiveThreadId(null);
-    setSelectedId(null); setOverlay(null); setError(''); setBalances(null); setStress(0); setPaymentResult(null);
+    setSelectedId(null); setOverlay(null); setError(''); setBalances(null); setStress(0);
+    setPaymentResult(null); setShipping(null);
     setNotice(`Now viewing as ${PROFILES[next].personName}.`);
   }
 
@@ -243,13 +249,14 @@ function useWorkspace() {
    * recipient's live balance, or failed with the actual error. The modal opens
    * immediately so the button click is never followed by silence.
    */
-  async function pay(recipientWallet: string, toLabel: string, threadId: string | null) {
+  async function pay(recipientWallet: string, toLabel: string, toCountry: string, threadId: string | null) {
     if (paying) return;
     setPaying(true); setError('');
     setPaymentResult({
       status: 'pending', amountMicros: DEMO_SETTLEMENT_MICROS,
       fromLabel: profile.personName, fromAddress: profile.wallet.address,
-      toLabel, toAddress: recipientWallet, signature: null, error: null, recipientBalanceMicros: null, threadId,
+      toLabel, toAddress: recipientWallet, fromCountry: profile.country, toCountry,
+      signature: null, error: null, recipientBalanceMicros: null, threadId,
     });
     setOverlay('payment');
     try {
@@ -282,18 +289,30 @@ function useWorkspace() {
     setOverlay(null);
   }
 
+  /** Opens the post-payment "how would you like to receive it?" mockup as its own screen. */
+  function openShipping(context: ShippingContext) {
+    setOverlay(null);
+    setShipping(context);
+  }
+
+  function closeShipping() {
+    setShipping(null);
+  }
+
   function resetDemo() {
     setThreads(clone(DEMO_THREADS)); setActiveThreadId(null); setSelectedId(null);
-    setOverlay(null); setRoute('list'); setTab('chats'); setStress(0); setError(''); setBalances(null); setPaymentResult(null);
+    setOverlay(null); setRoute('list'); setTab('chats'); setStress(0); setError(''); setBalances(null);
+    setPaymentResult(null); setShipping(null);
     setNotice('Seeded conversations restored. Ready for another walkthrough.');
   }
 
   return {
     ready, profileId, profile, switchProfile, resetDemo, threads: visibleThreads, activeThread,
     setActiveThreadId, tab, setTab, route, setRoute, overlay, setOverlay, selected, setSelectedId,
-    records, busy, paying, error, setError, notice, stress, setStress, balances, loadingBalances,
+    records, busy, paying, error, setError, notice, setNotice, stress, setStress, balances, loadingBalances,
     sendMessage, voteFeeBearer, updateThread, saveInvoice, acknowledge, prepareExport,
     checkAlteredCopy, copy, refreshBalances, pay, encryptedExport, paymentResult, closePaymentModal,
+    shipping, openShipping, closeShipping,
   };
 }
 type Workspace = ReturnType<typeof useWorkspace>;
@@ -365,12 +384,134 @@ function PaymentModal({ workspace }: { workspace: Workspace }) {
       <span>{result.error}{result.signature && ' The transaction was broadcast before this failure. It may still confirm later — check the explorer link above.'}</span>
     </div>}
 
-    <div className="button-row">
-      {result.status !== 'pending' && <button className="secondary" disabled={workspace.loadingBalances} onClick={() => void workspace.refreshBalances()}>Refresh my balance</button>}
-      <button className="primary" disabled={result.status === 'pending'} onClick={workspace.closePaymentModal}>{result.status === 'pending' ? 'Waiting…' : 'Done'}</button>
-    </div>
+    {result.status === 'confirmed' ? (
+      <div className="payment-next">
+        {/* The goods travel the opposite way to the payment: from the seller's country
+            (who received the USDC) to the buyer's country (who sent it). */}
+        <button className="primary" onClick={() => workspace.openShipping({ fromCountry: result.toCountry, toCountry: result.fromCountry })}>
+          Choose next steps <ArrowRight size={16} />
+        </button>
+        <div className="button-row">
+          <button className="secondary" disabled={workspace.loadingBalances} onClick={() => void workspace.refreshBalances()}>Refresh my balance</button>
+          <button className="text-button" onClick={workspace.closePaymentModal}>Close</button>
+        </div>
+      </div>
+    ) : (
+      <div className="button-row">
+        {result.status === 'failed' && <button className="secondary" disabled={workspace.loadingBalances} onClick={() => void workspace.refreshBalances()}>Refresh my balance</button>}
+        <button className="primary" disabled={result.status === 'pending'} onClick={workspace.closePaymentModal}>{result.status === 'pending' ? 'Waiting…' : 'Done'}</button>
+      </div>
+    )}
     <p className="fine">Solana devnet · test tokens have no financial value.</p>
   </Modal>;
+}
+
+// --- post-payment shipping mockup -------------------------------------------
+
+function ShippingScreen({ workspace }: { workspace: Workspace }) {
+  const context = workspace.shipping;
+  const [step, setStep] = useState<'options' | 'riders' | 'confirm'>('options');
+  const [selected, setSelected] = useState<Rider | null>(null);
+  const [kg, setKg] = useState(1);
+  const [item, setItem] = useState<string | null>(null);
+  if (!context) return null;
+  const riders = ridersFor(context.fromCountry, context.toCountry);
+
+  function selectRider(rider: Rider) {
+    setSelected(rider); setKg(1); setItem(rider.acceptedItems[0] ?? null);
+  }
+  function close() {
+    setStep('options'); setSelected(null); workspace.closeShipping();
+  }
+  function back() {
+    if (selected) setSelected(null);
+    else if (step === 'riders') setStep('options');
+    else close();
+  }
+
+  return <div className="shipping-screen">
+    <header className="shipping-head">
+      <button className="icon-button" aria-label="Back" onClick={back}><ArrowLeft size={19} /></button>
+      <strong>{step === 'options' ? 'Next steps' : step === 'confirm' ? 'Request sent' : 'Riders on this route'}</strong>
+    </header>
+
+    {step === 'options' && <div className="shipping-body">
+      <h1>How would you like to receive it?</h1>
+      <p>{context.fromCountry} to {context.toCountry}. Choose a way to bring your goods home.</p>
+      <div className="option-grid">
+        <button className="option-card" onClick={() => workspace.setNotice('Certified broker directory — coming soon.')}>
+          <span className="option-icon option-icon-brokers"><CheckCircle2 size={30} /></span>
+          <strong>Certified brokers</strong>
+          <small>Licensed customs brokers for formal shipping</small>
+        </button>
+        <button className="option-card is-accent" onClick={() => setStep('riders')}>
+          <span className="option-icon option-icon-riders"><Plane size={28} /></span>
+          <strong>Find a rider</strong>
+          <small>Travellers already making the trip</small>
+        </button>
+      </div>
+    </div>}
+
+    {step === 'riders' && !selected && <div className="shipping-body">
+      <p className="fine">{riders.length} rider{riders.length === 1 ? '' : 's'} travelling {context.fromCountry} → {context.toCountry}</p>
+      <div className="rider-list">
+        {riders.map((rider) => <button key={rider.id} className="rider-card" onClick={() => selectRider(rider)}>
+          <span className="avatar" aria-hidden="true">{rider.initials}</span>
+          <span className="rider-main">
+            <span className="rider-top"><strong>{rider.name}</strong><span className="rating-chip"><Star size={11} fill="#c9891b" /> {rider.rating.toFixed(1)}</span></span>
+            <small>{rider.trips} trips · Departs {rider.departure} · Arrives {rider.arrival}</small>
+            <small className="rider-price">Up to {rider.maxKg}kg · ${rider.pricePerKg}/kg</small>
+            <span className="item-row">
+              {rider.acceptedItems.slice(0, 3).map((accepted) => <span key={accepted} className="item-chip">{accepted}</span>)}
+              {rider.acceptedItems.length > 3 && <small>+{rider.acceptedItems.length - 3} more</small>}
+            </span>
+          </span>
+          <ChevronRight size={18} />
+        </button>)}
+        {riders.length === 0 && <div className="empty-riders"><Package size={32} /><p>No riders on this route yet. Check back soon.</p></div>}
+      </div>
+    </div>}
+
+    {step === 'riders' && selected && <div className="shipping-body">
+      <div className="rider-card is-static">
+        <span className="avatar" aria-hidden="true">{selected.initials}</span>
+        <span className="rider-main"><strong>{selected.name}</strong><small>Departs {selected.departure} · Arrives {selected.arrival}</small></span>
+      </div>
+
+      <h3>How many kilograms?</h3>
+      <div className="stepper">
+        <button className="icon-button" aria-label="Fewer kilograms" onClick={() => setKg((value) => Math.max(1, value - 1))}><Minus size={18} /></button>
+        <strong>{kg} kg</strong>
+        <button className="icon-button" aria-label="More kilograms" onClick={() => setKg((value) => Math.min(selected.maxKg, value + 1))}><Plus size={18} /></button>
+      </div>
+      <p className="fine" style={{ textAlign: 'center' }}>Up to {selected.maxKg}kg available</p>
+
+      <h3>What are you sending?</h3>
+      <div className="item-grid">
+        {ITEM_CATEGORIES.filter((category) => selected.acceptedItems.includes(category)).map((category) => (
+          <button key={category} className={`item-option${item === category ? ' is-chosen' : ''}`} onClick={() => setItem(category)}>
+            {item === category && <Check size={13} />} {category}
+          </button>
+        ))}
+      </div>
+
+      <div className="shipping-total"><span>Estimated cost</span><strong>${(kg * selected.pricePerKg).toFixed(0)}</strong></div>
+      <button className="primary" disabled={!item} onClick={() => setStep('confirm')}>Done</button>
+    </div>}
+
+    {step === 'confirm' && selected && <div className="shipping-confirm">
+      <span className="confirm-seal"><CheckCircle2 size={48} /></span>
+      <h2>Rider notified</h2>
+      <p>{selected.name} has been notified about {kg}kg of {item}. You'll coordinate pickup details together.</p>
+      <div className="confirm-summary">
+        <span><small>Rider</small><strong>{selected.name}</strong></span>
+        <span><small>Weight &amp; item</small><strong>{kg}kg · {item}</strong></span>
+        <span><small>Estimated cost</small><strong>${(kg * selected.pricePerKg).toFixed(0)}</strong></span>
+      </div>
+      <button className="primary" onClick={close}>Back to conversations</button>
+    </div>}
+    {workspace.notice && <p className="toast" role="status">{workspace.notice}</p>}
+  </div>;
 }
 
 function ErrorBanner({ error }: { error: string }) {
@@ -541,7 +682,7 @@ function ThreadView({ workspace }: { workspace: Workspace }) {
         <button className="primary" onClick={() => { workspace.setTab('invoices'); workspace.setRoute('create'); }}><FileText size={17} /> Create the invoice</button>
       )}
       {canPay && <>
-        <button className="primary" disabled={workspace.paying} onClick={() => void workspace.pay(PROFILES[thread.sellerId as ProfileId].wallet.address, PROFILES[thread.sellerId as ProfileId].personName, thread.id)}>
+        <button className="primary" disabled={workspace.paying} onClick={() => void workspace.pay(PROFILES[thread.sellerId as ProfileId].wallet.address, PROFILES[thread.sellerId as ProfileId].personName, PROFILES[thread.sellerId as ProfileId].country, thread.id)}>
           <ArrowUpRight size={17} /> {workspace.paying ? 'Confirming on devnet…' : `Pay ${formatUsdc(DEMO_SETTLEMENT_MICROS)} USDC on devnet`}
         </button>
         <p className="fine">{DEMO_SETTLEMENT_NOTE}</p>
@@ -815,7 +956,11 @@ function InvoiceDetailPage({ workspace }: { workspace: Workspace }) {
       <p>Invoice total: {formatUsdc(invoice.totalMicros)} USDC to {invoice.issuer}. SANAD charges no payment fee.</p>
       <p className="fine">{NETWORK_FEE_NOTE}</p>
       {isCustomer && <>
-        <button className="primary" disabled={workspace.busy || workspace.paying} onClick={() => void workspace.pay(invoice.payment.recipientWallet, invoice.issuer, workspace.threads.find((entry) => entry.invoice.id === invoice.reference)?.id ?? null)}>
+        <button className="primary" disabled={workspace.busy || workspace.paying} onClick={() => {
+          const invoiceThread = workspace.threads.find((entry) => entry.invoice.id === invoice.reference);
+          const sellerCountry = invoiceThread ? PARTICIPANTS[invoiceThread.sellerId]?.country ?? 'their country' : 'their country';
+          void workspace.pay(invoice.payment.recipientWallet, invoice.issuer, sellerCountry, invoiceThread?.id ?? null);
+        }}>
           <ArrowUpRight size={17} /> {workspace.paying ? 'Confirming on devnet…' : `Pay ${formatUsdc(DEMO_SETTLEMENT_MICROS)} USDC on devnet`}
         </button>
         <p className="fine">{DEMO_SETTLEMENT_NOTE} Nothing is marked paid until the network confirms it.</p>
@@ -890,6 +1035,7 @@ const TABS: { value: Tab; label: string; icon: typeof FileText }[] = [
 export default function App() {
   const workspace = useWorkspace();
   if (!workspace.ready) return <div className="loading" role="status">Opening your workspace…</div>;
+  if (workspace.shipping) return <ShippingScreen workspace={workspace} />;
 
   const page = workspace.tab === 'wallet' ? <WalletPage workspace={workspace} />
     : workspace.tab === 'invoices'
